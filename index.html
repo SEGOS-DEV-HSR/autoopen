@@ -1,0 +1,325 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AUTO OPEN 원격</title>
+<!--
+  AUTO OPEN 원격 제어 화면 (MQTT over WebSocket + AES-256-GCM) — 2026-10-19
+  · 이 파일 한 장을 HTTPS로 호스팅(GitHub Pages 등)하면 끝. 서버 코드 없음.
+  · 등록 링크(#해시)로 처음 열면 기기 ID·사용자 키·기기 키·브로커 정보가 이 폰 브라우저(localStorage)에 저장됨.
+    해시는 서버로 전송되지 않고, 저장 직후 주소창에서 지움.
+  · 모든 명령은 사용자 키로 AES-GCM 봉인(암호화+서명) + 현재 시각 포함 → 보드가 검증. 키는 절대 전송 안 함.
+  · 보드가 보내는 상태/이벤트는 기기 키로 봉인되어 있어 등록된 사람만 읽을 수 있음.
+  · 펌웨어: 보드 업로드 코드/20261019/20261019_v1_0_0 과 메시지 형식이 맞물려 있음 (op/ev 이름 바꾸면 양쪽 같이)
+-->
+<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root{--primary:#C55A11;--secondary:#C9956B;--text:#595959;--border:#E8DFD6;--highlight:#FBF3EC;--white:#FFFFFF;--danger:#C0392B;--ok:#2E7D32}
+*{box-sizing:border-box}
+body{margin:0;padding:20px 14px 70px;background:var(--highlight);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;min-height:100vh}
+.app{max-width:400px;margin:0 auto}
+.header{text-align:center;padding:4px 0 14px}
+.header h1{margin:0;font-size:1.3rem;color:var(--primary);letter-spacing:.5px}
+.header p{margin:4px 0 0;font-size:.78rem;color:var(--secondary)}
+.header .divider{width:48px;height:3px;background:var(--primary);margin:10px auto 0;border-radius:2px}
+.tabs{display:flex;gap:6px;margin:0 0 12px}
+.tabs button{flex:1;justify-content:center;background:var(--white);border:1px solid var(--border);border-radius:10px;padding:10px;color:var(--text);font-weight:700;font-size:.85rem}
+.tabs button.on{background:var(--primary);color:#fff;border-color:var(--primary)}
+.card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:16px;margin:0 0 12px;position:relative;overflow:hidden;box-shadow:0 2px 10px rgba(197,90,17,.06)}
+.card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--primary)}
+.card-title{font-weight:700;color:var(--primary);font-size:.85rem;margin:0 0 10px}
+.hidden{display:none!important}
+button{font-family:inherit;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:transform .12s,background .15s}
+button:active{transform:scale(.97)}
+button:disabled{opacity:.4;cursor:default;transform:none!important}
+.drawer-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.drawer-btn{flex-direction:column;justify-content:center;background:var(--highlight);border:1px solid var(--border);border-radius:12px;padding:14px 4px;color:var(--primary);font-weight:700;font-size:.82rem;gap:4px}
+.drawer-btn small{font-weight:500;color:var(--secondary);font-size:.7rem}
+.drawer-btn.pin{border-color:var(--danger)}
+.preset button{width:100%;background:var(--white);border:1px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-weight:600;font-size:.86rem;text-align:left;margin:0 0 8px}
+.status{display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--secondary);margin:0 0 10px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#bbb;margin-right:6px}
+.dot.on{background:var(--ok)}
+#msg{margin-top:6px;min-height:2.4em;white-space:pre-line;text-align:center;font-size:.85rem}
+#msg.bad{color:var(--danger);font-weight:700}
+#msg.good{color:var(--ok);font-weight:700}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th,td{padding:7px 4px;border-bottom:1px solid var(--border);text-align:center}
+th{color:var(--secondary);font-weight:600}
+td.name{text-align:left;font-weight:700}
+input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:.9rem;font-family:inherit}
+.row{display:flex;gap:8px;align-items:center;margin:8px 0}
+.row label{font-size:.82rem;display:flex;align-items:center;gap:4px}
+.btn{justify-content:center;border-radius:10px;padding:11px 14px;font-weight:700;font-size:.86rem}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-ghost{background:var(--white);border:1px solid var(--border);color:var(--text)}
+.btn-sm{padding:6px 10px;font-size:.78rem}
+.log{font-size:.8rem;line-height:1.7}
+.log .deny{color:var(--danger)}
+#qrBox{display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px 0}
+#qrBox img,#qrBox canvas{border:8px solid #fff;border-radius:8px}
+.linkbox{word-break:break-all;font-size:.72rem;color:var(--secondary);background:var(--highlight);padding:8px;border-radius:8px}
+.note{font-size:.78rem;color:var(--secondary);line-height:1.5}
+</style></head><body>
+<div class="app">
+<div class="header"><h1>AUTO OPEN</h1><p id="sub">원격 제어</p><div class="divider"></div></div>
+
+<div id="noCred" class="card hidden">
+<div class="card-title">등록 필요</div>
+<p class="note">이 폰은 아직 등록되지 않았습니다. 관리자가 보내준 등록 링크(또는 QR)를 이 브라우저에서 열어 주세요.<br>처음 설치라면 보드와 같은 WiFi에서 <b>http://autoopen.local/admin</b> 으로 관리자 링크를 만들 수 있습니다.</p>
+</div>
+
+<div id="main" class="hidden">
+<div class="status"><span><span id="dot" class="dot"></span><span id="connTxt">연결 중...</span></span><span id="who"></span></div>
+<div class="tabs">
+<button id="tabDrawer" class="on" onclick="showTab('drawer')">서랍</button>
+<button id="tabLog" onclick="showTab('log')">기록</button>
+<button id="tabAdmin" class="hidden" onclick="showTab('admin')">관리자</button>
+</div>
+
+<div id="pDrawer">
+<div class="card"><div class="card-title">서랍 제어</div>
+<div class="drawer-grid" id="grid"></div></div>
+<div class="card" id="presetCard"><div class="card-title">세팅</div><div id="presetList" class="preset"></div><p class="note" id="presetNote"></p></div>
+</div>
+
+<div id="pLog" class="hidden">
+<div class="card"><div class="card-title">최근 기록 <button class="btn btn-ghost btn-sm" style="float:right" onclick="reqLog()">새로고침</button></div>
+<div id="logList" class="log">불러오는 중...</div></div>
+</div>
+
+<div id="pAdmin" class="hidden">
+<div class="card"><div class="card-title">사용자 · 허용 서랍</div>
+<table><thead><tr><th style="text-align:left">이름</th><th>1</th><th>2</th><th>3</th><th>관리</th><th></th></tr></thead><tbody id="userRows"></tbody></table>
+<p class="note">체크를 바꾸면 바로 저장됩니다. 자기 자신은 삭제·관리자 해제가 안 됩니다.</p></div>
+
+<div class="card"><div class="card-title">사용자 추가</div>
+<input type="text" id="newName" placeholder="이름 (예: 엄마)" maxlength="12">
+<div class="row"><label><input type="checkbox" class="np" value="1" checked>서랍 1</label><label><input type="checkbox" class="np" value="2" checked>서랍 2</label><label><input type="checkbox" class="np" value="4" checked>서랍 3</label><label><input type="checkbox" id="newAdmin">관리자</label></div>
+<button class="btn btn-primary" style="width:100%" onclick="addUser()">추가하고 등록 QR 만들기</button>
+<div id="qrBox" class="hidden"><div id="qr"></div><div id="qrName" style="font-weight:700"></div><div class="linkbox" id="qrLink"></div><button class="btn btn-ghost btn-sm" onclick="copyLink()">링크 복사</button><p class="note">이 QR·링크는 지금만 볼 수 있습니다. 상대 폰에서 열면 등록이 끝납니다.</p></div></div>
+
+<div class="card"><div class="card-title">칸별 모드 (일반 / 금고형)</div>
+<div id="modeRows"></div>
+<p class="note">금고형 칸은 열 때마다 PIN을 묻고, 5회 틀리면 10분 잠깁니다. 세팅(여러 칸 동시)과 보드 옆 웹·BLE로는 열 수 없습니다.</p></div>
+</div>
+
+<div id="msg"></div>
+</div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const N = 3;
+let cred = null, client = null, keyUser = null, keyDev = null;
+let state = { busy: 0, pinmask: 0, presets: '' };
+let me = { admin: false, perm: 0, name: '' };
+let lastSentT = 0, msgTimer = null, pendingAdd = null;
+
+// ── 등록 링크 처리 ──
+(function bootstrap() {
+  const h = location.hash.startsWith('#') ? location.hash.slice(1) : '';
+  if (h.includes('k=')) {
+    const q = new URLSearchParams(h);
+    const c = { d: q.get('d'), u: q.get('u'), k: q.get('k'), dk: q.get('dk'), h: q.get('h'), p: q.get('p') || '8084', bu: q.get('bu') || '', bp: q.get('bp') || '', n: q.get('n') || '' };
+    if (c.d && c.u && c.k && c.dk && c.h) {
+      try { localStorage.setItem('ao_cred', JSON.stringify(c)); } catch (e) {}
+      history.replaceState(null, '', location.pathname + location.search);
+    }
+  }
+  try { cred = JSON.parse(localStorage.getItem('ao_cred') || 'null'); } catch (e) { cred = null; }
+})();
+
+// ── 바이트/Base64 도구 ──
+const enc = new TextEncoder(), dec = new TextDecoder();
+function b64ToBytes(s) { s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; const bin = atob(s); const out = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out; }
+function bytesToB64(b) { let s = ''; for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s); }
+function bytesToB64url(b) { return bytesToB64(b).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+async function importKey(b64) { return crypto.subtle.importKey('raw', b64ToBytes(b64), 'AES-GCM', false, ['encrypt', 'decrypt']); }
+
+// 봉인: {"u":uid,"n":b64 nonce,"c":b64 (암호문+태그)}  AAD = uid  (펌웨어 gcmSeal/gcmOpen과 동일)
+async function seal(obj) {
+  const nonce = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce, additionalData: enc.encode(cred.u), tagLength: 128 }, keyUser, enc.encode(JSON.stringify(obj))));
+  return JSON.stringify({ u: cred.u, n: bytesToB64(nonce), c: bytesToB64(ct) });
+}
+async function unseal(envStr) {
+  let env; try { env = JSON.parse(envStr); } catch (e) { return null; }
+  if (env.u !== 'dev') return null;
+  try {
+    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64ToBytes(env.n), additionalData: enc.encode('dev'), tagLength: 128 }, keyDev, b64ToBytes(env.c));
+    return JSON.parse(dec.decode(pt));
+  } catch (e) { return null; }
+}
+
+function nowT() { let t = Math.floor(Date.now() / 1000); if (t <= lastSentT) t = lastSentT + 1; lastSentT = t; return t; }
+async function send(obj) {
+  if (!client || !client.connected) { showMsg('브로커에 연결되지 않았습니다', 'bad'); return; }
+  obj.t = nowT();
+  client.publish('ao/' + cred.d + '/cmd', await seal(obj), { qos: 1 });
+}
+
+function showMsg(text, cls) {
+  const m = $('msg'); m.className = cls || ''; m.textContent = text;
+  clearTimeout(msgTimer); msgTimer = setTimeout(() => { m.textContent = ''; m.className = ''; }, 3000);
+}
+
+// ── 연결 ──
+async function start() {
+  if (!cred || !crypto.subtle) { $('noCred').classList.remove('hidden'); if (!crypto.subtle) $('noCred').querySelector('p').textContent = '이 화면은 HTTPS 주소에서만 동작합니다 (암호화 기능 때문).'; return; }
+  $('main').classList.remove('hidden');
+  keyUser = await importKey(cred.k); keyDev = await importKey(cred.dk);
+  $('who').textContent = cred.n ? decodeURIComponent(cred.n) : cred.u;
+  renderGrid(); renderModes();
+  const url = 'wss://' + cred.h + ':' + cred.p + '/mqtt';
+  client = mqtt.connect(url, { username: cred.bu, password: cred.bp, clientId: 'aoweb-' + cred.u + '-' + Math.random().toString(16).slice(2, 8), reconnectPeriod: 3000, connectTimeout: 10000 });
+  client.on('connect', () => {
+    $('dot').classList.add('on'); $('connTxt').textContent = '연결됨';
+    client.subscribe(['ao/' + cred.d + '/state', 'ao/' + cred.d + '/evt'], { qos: 1 });
+    send({ op: 'ping' });
+  });
+  client.on('reconnect', () => { $('connTxt').textContent = '재연결 중...'; });
+  client.on('close', () => { $('dot').classList.remove('on'); $('connTxt').textContent = '끊김'; });
+  client.on('error', e => { $('connTxt').textContent = '오류: ' + (e && e.message ? e.message : e); });
+  client.on('message', async (topic, payload) => {
+    const o = await unseal(payload.toString());
+    if (!o) return;
+    if (topic.endsWith('/state')) { onState(o); return; }
+    onEvt(o);
+  });
+}
+
+function onState(s) {
+  state = s;
+  renderGrid(); renderPresets(); renderModes();
+  if (s.busy) $('connTxt').textContent = '작동 중'; else if (client && client.connected) $('connTxt').textContent = '연결됨';
+}
+
+const DENY_MSG = { perm: '이 서랍을 열 권한이 없습니다', pin: 'PIN이 틀렸습니다', locked: '금고형 칸이 잠겨 있습니다 (10분)', nopin: 'PIN이 설정되지 않은 칸입니다', busy: '다른 서랍이 작동 중입니다. 잠시 후 다시', replay: '시각 오류 — 폰 시계를 확인하거나 다시 시도', time: '보드 시각 동기화 대기 중. 잠시 후 다시', user: '등록되지 않은 사용자입니다. 다시 등록 링크를 받으세요', auth: '인증 실패 — 등록 정보가 바뀌었습니다', admin: '관리자만 할 수 있습니다', full: '사용자가 가득 찼습니다(8명)', self: '자기 자신은 지울 수 없습니다', pinpreset: '금고형 칸이 포함된 세팅은 쓸 수 없습니다', bad: '잘못된 요청', op: '알 수 없는 명령' };
+
+function onEvt(e) {
+  const mine = (e.to === cred.u);
+  if (e.ev === 'deny') { if (mine) showMsg(DENY_MSG[e.r] || ('거절: ' + e.r), 'bad'); return; }
+  if (e.ev === 'open') { if (mine) showMsg('서랍 ' + e.d + ' 개방 신호 전송됨', 'good'); else showMsg(e.by + ' 님이 서랍 ' + e.d + ' 사용 중', ''); return; }
+  if (e.ev === 'preset') { if (mine) showMsg('세팅 ' + (e.i + 1) + ' 개방', 'good'); else showMsg(e.by + ' 님이 세팅 ' + (e.i + 1) + ' 사용 중', ''); return; }
+  if (!mine) return;
+  if (e.ev === 'pong') { me = { admin: e.admin === 1, perm: e.perm, name: e.name }; $('who').textContent = e.name + (me.admin ? ' (관리자)' : ''); $('tabAdmin').classList.toggle('hidden', !me.admin); renderGrid(); if (me.admin) send({ op: 'users' }); return; }
+  if (e.ev === 'users') { renderUsers(e.list || []); return; }
+  if (e.ev === 'log') { renderLog(e.list || []); return; }
+  if (e.ev === 'adduser') { onAdded(e); return; }
+  if (e.ev === 'mode') { state.pinmask = e.pinmask; renderGrid(); renderModes(); showMsg('모드 저장됨', 'good'); return; }
+}
+
+// ── 서랍 탭 ──
+function renderGrid() {
+  const g = $('grid'); g.innerHTML = '';
+  for (let d = 1; d <= N; d++) {
+    const b = document.createElement('button');
+    const pin = (state.pinmask >> (d - 1)) & 1, allowed = (me.perm >> (d - 1)) & 1;
+    b.className = 'drawer-btn' + (pin ? ' pin' : '');
+    b.innerHTML = '<span>서랍 ' + d + '</span><small>' + (!allowed ? '권한 없음' : (pin ? '금고형 · PIN' : '일반')) + '</small>';
+    b.disabled = !!state.busy || !allowed;
+    b.onclick = () => openDrawer(d, pin);
+    g.appendChild(b);
+  }
+}
+function openDrawer(d, pin) {
+  if (pin) { const v = prompt('서랍 ' + d + ' PIN 입력'); if (v === null) return; send({ op: 'open', d: d, pin: v }); }
+  else send({ op: 'open', d: d });
+}
+function renderPresets() {
+  const list = state.presets ? state.presets.split('|') : [];
+  const box = $('presetList'); box.innerHTML = '';
+  list.forEach((p, i) => {
+    const b = document.createElement('button');
+    b.textContent = '세팅 ' + (i + 1) + ' (서랍 ' + p.split('').join('·') + ')';
+    b.disabled = !!state.busy;
+    b.onclick = () => send({ op: 'preset', i: i });
+    box.appendChild(b);
+  });
+  $('presetCard').classList.toggle('hidden', list.length === 0);
+  $('presetNote').textContent = '세팅 편집은 보드 옆 WiFi 화면(autoopen.local)에서 합니다.';
+}
+
+// ── 기록 탭 ──
+function reqLog() { send({ op: 'log' }); }
+function fmtT(t) { if (!t || t < 1600000000) return '--:--'; const d = new Date(t * 1000); return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+function renderLog(list) {
+  if (!list.length) { $('logList').textContent = '기록 없음'; return; }
+  $('logList').innerHTML = list.slice().reverse().map(l => {
+    const deny = l.r.startsWith('deny');
+    const what = l.d > 0 ? '서랍 ' + l.d : '';
+    return '<div class="' + (deny ? 'deny' : '') + '">' + fmtT(l.t) + ' · ' + l.by + ' · ' + what + ' · ' + (deny ? '거절(' + (DENY_MSG[l.r.slice(5)] || l.r.slice(5)) + ')' : l.r === 'ok' ? '열림' : l.r) + '</div>';
+  }).join('');
+}
+
+// ── 관리자 탭 ──
+function renderUsers(list) {
+  const tb = $('userRows'); tb.innerHTML = '';
+  list.forEach(u => {
+    const tr = document.createElement('tr');
+    const self = (u.uid === cred.u);
+    let cells = '<td class="name">' + u.name + (self ? ' (나)' : '') + '</td>';
+    for (let d = 0; d < N; d++) cells += '<td><input type="checkbox" ' + (((u.perm >> d) & 1) ? 'checked' : '') + ' onchange="permChange(\'' + u.uid + '\',this)" data-bit="' + d + '"></td>';
+    cells += '<td><input type="checkbox" ' + (u.admin ? 'checked' : '') + (self ? ' disabled' : '') + ' onchange="permChange(\'' + u.uid + '\',this)" data-admin="1"></td>';
+    cells += '<td>' + (self ? '' : '<button class="btn btn-danger btn-sm" onclick="delUser(\'' + u.uid + '\',\'' + u.name.replace(/'/g, '') + '\')">삭제</button>') + '</td>';
+    tr.innerHTML = cells; tr.dataset.uid = u.uid; tb.appendChild(tr);
+  });
+}
+function permChange(uid, el) {
+  const tr = el.closest('tr'); let perm = 0;
+  tr.querySelectorAll('input[data-bit]').forEach(cb => { if (cb.checked) perm |= (1 << Number(cb.dataset.bit)); });
+  const adminCb = tr.querySelector('input[data-admin]');
+  send({ op: 'setperm', uid: uid, perm: perm, admin: adminCb.checked ? 1 : 0 });
+}
+function delUser(uid, name) { if (confirm(name + ' 님을 삭제할까요? 그 폰은 즉시 사용 불가가 됩니다.')) send({ op: 'deluser', uid: uid }); }
+
+async function addUser() {
+  const name = $('newName').value.trim(); if (!name) { showMsg('이름을 입력하세요', 'bad'); return; }
+  let perm = 0; document.querySelectorAll('.np').forEach(cb => { if (cb.checked) perm |= Number(cb.value); });
+  const key = crypto.getRandomValues(new Uint8Array(32));
+  pendingAdd = { name: name, keyB64url: bytesToB64url(key) };
+  await send({ op: 'adduser', name: name, key: bytesToB64(key), perm: perm, admin: $('newAdmin').checked ? 1 : 0 });
+}
+function onAdded(e) {
+  if (!pendingAdd) return;
+  const link = location.origin + location.pathname + '#d=' + cred.d + '&u=' + e.uid + '&k=' + pendingAdd.keyB64url + '&dk=' + cred.dk + '&h=' + cred.h + '&p=' + cred.p + '&bu=' + encodeURIComponent(cred.bu) + '&bp=' + encodeURIComponent(cred.bp) + '&n=' + encodeURIComponent(pendingAdd.name);
+  $('qr').innerHTML = '';
+  new QRCode($('qr'), { text: link, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M });
+  $('qrName').textContent = pendingAdd.name + ' 등록용';
+  $('qrLink').textContent = link;
+  $('qrBox').classList.remove('hidden');
+  $('newName').value = '';
+  pendingAdd = null;
+  send({ op: 'users' });
+  showMsg('사용자 추가됨 — QR을 상대 폰으로 찍게 하세요', 'good');
+}
+function copyLink() { navigator.clipboard.writeText($('qrLink').textContent).then(() => showMsg('링크 복사됨', 'good')); }
+
+function renderModes() {
+  const box = $('modeRows'); box.innerHTML = '';
+  for (let d = 1; d <= N; d++) {
+    const pin = (state.pinmask >> (d - 1)) & 1;
+    const row = document.createElement('div'); row.className = 'row';
+    row.innerHTML = '<span style="width:52px;font-weight:700">서랍 ' + d + '</span><span style="width:64px;font-size:.8rem;color:' + (pin ? 'var(--danger)' : 'var(--secondary)') + '">' + (pin ? '금고형' : '일반') + '</span>'
+      + '<input type="password" id="pin' + d + '" placeholder="PIN 4자리+" style="flex:1" inputmode="numeric">'
+      + '<button class="btn btn-sm ' + (pin ? 'btn-ghost' : 'btn-primary') + '" onclick="setMode(' + d + ',' + (pin ? 0 : 1) + ')">' + (pin ? '일반으로' : '금고형으로') + '</button>';
+    box.appendChild(row);
+  }
+}
+function setMode(d, on) {
+  const pv = $('pin' + d).value;
+  if (on && pv.length < 4 && !((state.pinmask >> (d - 1)) & 1)) { showMsg('PIN을 4자리 이상 넣어 주세요', 'bad'); return; }
+  send({ op: 'setmode', d: d, pin: on, pinval: pv });
+  $('pin' + d).value = '';
+}
+
+function showTab(t) {
+  ['Drawer', 'Log', 'Admin'].forEach(k => { $('p' + k).classList.toggle('hidden', k.toLowerCase() !== t); $('tab' + k).classList.toggle('on', k.toLowerCase() === t); });
+  if (t === 'log') reqLog();
+  if (t === 'admin') send({ op: 'users' });
+}
+
+start();
+</script>
+</body></html>
