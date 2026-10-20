@@ -115,6 +115,7 @@ let cred = null, client = null, keyUser = null, keyDev = null;
 let state = { busy: 0, pinmask: 0, presets: '' };
 let me = { admin: false, perm: 0, name: '' };
 let lastSentT = 0, msgTimer = null, pendingAdd = null;
+let gotPong = false, pingTimer = null;   // 보드 응답 여부 (브로커 연결 ≠ 보드 온라인)
 
 // ── 등록 링크 처리 ──
 (function bootstrap() {
@@ -176,7 +177,17 @@ async function start() {
   client.on('connect', () => {
     $('dot').classList.add('on'); $('connTxt').textContent = '연결됨';
     client.subscribe(['ao/' + cred.d + '/state', 'ao/' + cred.d + '/evt'], { qos: 1 });
+    gotPong = false; renderGrid();
     send({ op: 'ping' });
+    // 보드가 6초 안에 답하지 않으면 "보드 응답 없음"으로 표시하고 10초마다 다시 물어봄
+    clearInterval(pingTimer);
+    pingTimer = setInterval(() => {
+      if (gotPong) { clearInterval(pingTimer); return; }
+      $('connTxt').textContent = '브로커 연결됨 · 보드 응답 없음';
+      showMsg('보드가 응답하지 않습니다. 보드 전원과 인터넷(WiFi) 상태를 확인하세요', 'bad');
+      renderGrid();
+      if (client.connected) send({ op: 'ping' });
+    }, 6000);
   });
   client.on('reconnect', () => { $('connTxt').textContent = '재연결 중...'; });
   client.on('close', () => { $('dot').classList.remove('on'); $('connTxt').textContent = '끊김'; });
@@ -192,7 +203,7 @@ async function start() {
 function onState(s) {
   state = s;
   renderGrid(); renderPresets(); renderModes();
-  if (s.busy) $('connTxt').textContent = '작동 중'; else if (client && client.connected) $('connTxt').textContent = '연결됨';
+  if (s.busy) $('connTxt').textContent = '작동 중'; else if (client && client.connected && gotPong) $('connTxt').textContent = '연결됨';
 }
 
 const DENY_MSG = { perm: '이 서랍을 열 권한이 없습니다', pin: 'PIN이 틀렸습니다', locked: '금고형 칸이 잠겨 있습니다 (10분)', nopin: 'PIN이 설정되지 않은 칸입니다', busy: '다른 서랍이 작동 중입니다. 잠시 후 다시', replay: '시각 오류 — 폰 시계를 확인하거나 다시 시도', time: '보드 시각 동기화 대기 중. 잠시 후 다시', user: '등록되지 않은 사용자입니다. 다시 등록 링크를 받으세요', auth: '인증 실패 — 등록 정보가 바뀌었습니다', admin: '관리자만 할 수 있습니다', full: '사용자가 가득 찼습니다(8명)', self: '자기 자신은 지울 수 없습니다', pinpreset: '금고형 칸이 포함된 세팅은 쓸 수 없습니다', bad: '잘못된 요청', op: '알 수 없는 명령' };
@@ -203,7 +214,7 @@ function onEvt(e) {
   if (e.ev === 'open') { if (mine) showMsg('서랍 ' + e.d + ' 개방 신호 전송됨', 'good'); else showMsg(e.by + ' 님이 서랍 ' + e.d + ' 사용 중', ''); return; }
   if (e.ev === 'preset') { if (mine) showMsg('세팅 ' + (e.i + 1) + ' 개방', 'good'); else showMsg(e.by + ' 님이 세팅 ' + (e.i + 1) + ' 사용 중', ''); return; }
   if (!mine) return;
-  if (e.ev === 'pong') { me = { admin: e.admin === 1, perm: e.perm, name: e.name }; $('who').textContent = e.name + (me.admin ? ' (관리자)' : ''); $('tabAdmin').classList.toggle('hidden', !me.admin); renderGrid(); if (me.admin) send({ op: 'users' }); return; }
+  if (e.ev === 'pong') { gotPong = true; clearInterval(pingTimer); if (client.connected) $('connTxt').textContent = '연결됨'; me = { admin: e.admin === 1, perm: e.perm, name: e.name }; $('who').textContent = e.name + (me.admin ? ' (관리자)' : ''); $('tabAdmin').classList.toggle('hidden', !me.admin); renderGrid(); if (me.admin) send({ op: 'users' }); return; }
   if (e.ev === 'users') { renderUsers(e.list || []); return; }
   if (e.ev === 'log') { renderLog(e.list || []); return; }
   if (e.ev === 'adduser') { onAdded(e); return; }
@@ -217,8 +228,9 @@ function renderGrid() {
     const b = document.createElement('button');
     const pin = (state.pinmask >> (d - 1)) & 1, allowed = (me.perm >> (d - 1)) & 1;
     b.className = 'drawer-btn' + (pin ? ' pin' : '');
-    b.innerHTML = '<span>서랍 ' + d + '</span><small>' + (!allowed ? '권한 없음' : (pin ? '금고형 · PIN' : '일반')) + '</small>';
-    b.disabled = !!state.busy || !allowed;
+    const label = !gotPong ? '보드 확인 중' : (!allowed ? '권한 없음' : (pin ? '금고형 · PIN' : '일반'));
+    b.innerHTML = '<span>서랍 ' + d + '</span><small>' + label + '</small>';
+    b.disabled = !!state.busy || !allowed || !gotPong;
     b.onclick = () => openDrawer(d, pin);
     g.appendChild(b);
   }
