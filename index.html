@@ -102,6 +102,11 @@ input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid v
 <div class="card"><div class="card-title">칸별 모드 (일반 / 금고형)</div>
 <div id="modeRows"></div>
 <p class="note">금고형 칸은 열 때마다 PIN을 묻고, 5회 틀리면 10분 잠깁니다. 세팅(여러 칸 동시)과 보드 옆 웹·BLE로는 열 수 없습니다.</p></div>
+
+<div class="card"><div class="card-title">세팅 (여러 칸 동시 개방)</div>
+<div id="presetAdminList"></div>
+<div class="row"><span style="font-size:.82rem;font-weight:700">새 세팅</span><label><input type="checkbox" class="pp" value="1">서랍 1</label><label><input type="checkbox" class="pp" value="2">서랍 2</label><label><input type="checkbox" class="pp" value="3">서랍 3</label><button class="btn btn-primary btn-sm" onclick="addPreset()">추가</button></div>
+<p class="note">최대 7개. 2칸 이상 조합만 의미가 있습니다. 금고형 칸이 든 세팅은 실행이 거절됩니다.</p></div>
 </div>
 
 <div id="msg"></div>
@@ -219,6 +224,7 @@ function onEvt(e) {
   if (e.ev === 'log') { renderLog(e.list || []); return; }
   if (e.ev === 'adduser') { onAdded(e); return; }
   if (e.ev === 'mode') { state.pinmask = e.pinmask; renderGrid(); renderModes(); showMsg('모드 저장됨', 'good'); return; }
+  if (e.ev === 'presets') { state.presets = e.presets || ''; renderPresets(); renderPresetAdmin(); showMsg('세팅 저장됨', 'good'); return; }
 }
 
 // ── 서랍 탭 ──
@@ -250,7 +256,37 @@ function renderPresets() {
     box.appendChild(b);
   });
   $('presetCard').classList.toggle('hidden', list.length === 0);
-  $('presetNote').textContent = '세팅 편집은 보드 옆 WiFi 화면(autoopen.local)에서 합니다.';
+  $('presetNote').textContent = me.admin ? '세팅 편집은 관리자 탭에서 합니다.' : '세팅 편집은 관리자가 합니다.';
+  renderPresetAdmin();
+}
+
+// ── 관리자: 세팅 편집 (전체 목록을 "13|23" 형태로 보드에 통째로 저장) ──
+function presetList() { return state.presets ? state.presets.split('|').filter(p => p) : []; }
+function renderPresetAdmin() {
+  const box = $('presetAdminList'); if (!box) return;
+  const list = presetList();
+  box.innerHTML = list.length ? '' : '<p class="note">저장된 세팅 없음</p>';
+  list.forEach((p, i) => {
+    const row = document.createElement('div'); row.className = 'row';
+    row.innerHTML = '<span style="flex:1;font-size:.86rem"><b>세팅 ' + (i + 1) + '</b> · 서랍 ' + p.split('').join('·') + '</span><button class="btn btn-danger btn-sm" onclick="delPreset(' + i + ')">삭제</button>';
+    box.appendChild(row);
+  });
+}
+function addPreset() {
+  const d = [...document.querySelectorAll('.pp')].filter(cb => cb.checked).map(cb => cb.value).sort().join('');
+  if (!d) { showMsg('서랍을 1개 이상 선택하세요', 'bad'); return; }
+  const list = presetList();
+  if (list.length >= 7) { showMsg('세팅은 최대 7개입니다', 'bad'); return; }
+  if (list.includes(d)) { showMsg('이미 같은 세팅이 있습니다', 'bad'); return; }
+  list.push(d);
+  document.querySelectorAll('.pp').forEach(cb => cb.checked = false);
+  send({ op: 'setpresets', list: list.join('|') });
+}
+function delPreset(i) {
+  const list = presetList();
+  if (!confirm('세팅 ' + (i + 1) + ' (서랍 ' + list[i].split('').join('·') + ')을 삭제할까요?')) return;
+  list.splice(i, 1);
+  send({ op: 'setpresets', list: list.join('|') });
 }
 
 // ── 기록 탭 ──
