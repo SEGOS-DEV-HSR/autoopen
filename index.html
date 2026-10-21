@@ -129,6 +129,25 @@ let me = { admin: false, perm: 0, name: '' };
 let lastSentT = 0, msgTimer = null, pendingAdd = null;
 let gotPong = false, pingTimer = null;   // 보드 응답 여부 (브로커 연결 ≠ 보드 온라인)
 
+// ── 메신저 안 브라우저(카톡 등)에서 열렸으면 기본 브라우저로 넘김 ──
+//    등록 키가 "링크를 연 브라우저"에 저장되므로, 카톡 안 브라우저에 저장되면 Safari에서는 못 씀.
+//    반드시 bootstrap(해시 저장·제거)보다 먼저 실행해야 해시가 보존된 채로 넘어감.
+(function escapeInApp() {
+  const ua = navigator.userAgent || '';
+  const here = location.href;
+  if (/KAKAOTALK/i.test(ua)) {                      // 카카오톡: 외부 브라우저로 열기 규칙
+    location.replace('kakaotalk://web/openExternal?url=' + encodeURIComponent(here));
+    document.addEventListener('DOMContentLoaded', () => {
+      document.body.innerHTML = '<div style="padding:40px 20px;text-align:center;font-family:-apple-system,sans-serif;color:#595959"><h2 style="color:#C55A11">Safari로 이동 중...</h2><p>자동으로 열리지 않으면 오른쪽 아래 <b>···</b> 또는 공유 버튼 → <b>Safari에서 열기</b>를 눌러 주세요.</p><p><a href="' + here + '" style="color:#C55A11;font-weight:700">다시 시도</a></p></div>';
+    });
+    throw new Error('in-app browser redirect');       // 아래 스크립트(해시 저장) 실행 중단
+  }
+  if (/\bLine\//i.test(ua) && !/openExternalBrowser=1/.test(here)) {   // 라인
+    location.replace(here.replace(/#/, (here.includes('?') ? '&' : '?') + 'openExternalBrowser=1#'));
+    throw new Error('in-app browser redirect');
+  }
+})();
+
 // ── 등록 링크 처리 ──
 (function bootstrap() {
   const h = location.hash.startsWith('#') ? location.hash.slice(1) : '';
