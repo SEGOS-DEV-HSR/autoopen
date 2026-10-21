@@ -97,7 +97,14 @@ input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid v
 <input type="text" id="newName" placeholder="이름 (예: 엄마)" maxlength="12">
 <div class="row"><label><input type="checkbox" class="np" value="1" checked>서랍 1</label><label><input type="checkbox" class="np" value="2" checked>서랍 2</label><label><input type="checkbox" class="np" value="4" checked>서랍 3</label><label><input type="checkbox" id="newAdmin">관리자</label></div>
 <button class="btn btn-primary" style="width:100%" onclick="addUser()">추가하고 등록 QR 만들기</button>
-<div id="qrBox" class="hidden"><div id="qr"></div><div id="qrName" style="font-weight:700"></div><div class="linkbox" id="qrLink"></div><button class="btn btn-ghost btn-sm" onclick="copyLink()">링크 복사</button><p class="note">이 QR·링크는 지금만 볼 수 있습니다. 상대 폰에서 열면 등록이 끝납니다.</p></div></div>
+<div id="qrBox" class="hidden"><div id="qr"></div><div id="qrName" style="font-weight:700"></div>
+<div class="row" style="justify-content:center"><button class="btn btn-primary" onclick="shareLink()">공유하기</button><button class="btn btn-ghost" onclick="copyLink()">링크 복사</button></div>
+<p class="note">공유하기 = 카톡·문자·메일로 보내기. 받는 사람은 링크를 <b>Safari(기본 브라우저)</b>에서 열어야 합니다. 상대 폰에서 열면 등록이 끝납니다.</p>
+<div class="linkbox" id="qrLink"></div></div></div>
+
+<div class="card"><div class="card-title">발급한 초대 (이 폰에 저장)</div>
+<div id="inviteList"></div>
+<p class="note">여기서 언제든 다시 공유하거나 QR을 띄울 수 있습니다. 상대가 등록을 마쳤으면 "목록에서 지우기"로 지워 두는 것이 안전합니다(사용자 삭제와는 별개).</p></div>
 
 <div class="card"><div class="card-title">칸별 모드 (일반 / 금고형)</div>
 <div id="modeRows"></div>
@@ -220,7 +227,7 @@ function onEvt(e) {
   if (e.ev === 'preset') { if (mine) showMsg('세팅 ' + (e.i + 1) + ' 개방', 'good'); else showMsg(e.by + ' 님이 세팅 ' + (e.i + 1) + ' 사용 중', ''); return; }
   if (!mine) return;
   if (e.ev === 'pong') { gotPong = true; clearInterval(pingTimer); if (client.connected) $('connTxt').textContent = '연결됨'; me = { admin: e.admin === 1, perm: e.perm, name: e.name }; $('who').textContent = e.name + (me.admin ? ' (관리자)' : ''); $('tabAdmin').classList.toggle('hidden', !me.admin); renderGrid(); if (me.admin) send({ op: 'users' }); return; }
-  if (e.ev === 'users') { renderUsers(e.list || []); return; }
+  if (e.ev === 'users') { renderUsers(e.list || []); renderInvites(); const ids = new Set((e.list || []).map(u => u.uid)); loadInvites().forEach(inv => { if (!ids.has(inv.uid)) dropInvite(inv.uid); }); return; }
   if (e.ev === 'log') { renderLog(e.list || []); return; }
   if (e.ev === 'adduser') { onAdded(e); return; }
   if (e.ev === 'mode') { state.pinmask = e.pinmask; renderGrid(); renderModes(); showMsg('모드 저장됨', 'good'); return; }
@@ -332,17 +339,47 @@ async function addUser() {
 function onAdded(e) {
   if (!pendingAdd) return;
   const link = location.origin + location.pathname + '#d=' + cred.d + '&u=' + e.uid + '&k=' + pendingAdd.keyB64url + '&dk=' + cred.dk + '&h=' + cred.h + '&p=' + cred.p + '&bu=' + encodeURIComponent(cred.bu) + '&bp=' + encodeURIComponent(cred.bp) + '&n=' + encodeURIComponent(pendingAdd.name);
-  $('qr').innerHTML = '';
-  new QRCode($('qr'), { text: link, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M });
-  $('qrName').textContent = pendingAdd.name + ' 등록용';
-  $('qrLink').textContent = link;
-  $('qrBox').classList.remove('hidden');
+  showInvite(pendingAdd.name, link);
+  saveInvite({ uid: e.uid, name: pendingAdd.name, link: link, t: Date.now() });
   $('newName').value = '';
   pendingAdd = null;
   send({ op: 'users' });
-  showMsg('사용자 추가됨 — QR을 상대 폰으로 찍게 하세요', 'good');
+  showMsg('사용자 추가됨 — QR을 찍게 하거나 공유하기로 보내세요', 'good');
+}
+function showInvite(name, link) {
+  $('qr').innerHTML = '';
+  new QRCode($('qr'), { text: link, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M });
+  $('qrName').textContent = name + ' 등록용';
+  $('qrLink').textContent = link;
+  $('qrBox').classList.remove('hidden');
+  $('qrBox').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 function copyLink() { navigator.clipboard.writeText($('qrLink').textContent).then(() => showMsg('링크 복사됨', 'good')); }
+async function shareLink() {
+  const link = $('qrLink').textContent, name = $('qrName').textContent.replace(' 등록용', '');
+  if (navigator.share) {
+    try { await navigator.share({ title: 'AUTO OPEN 등록 (' + name + ')', text: 'AUTO OPEN 서랍 등록 링크입니다. Safari(기본 브라우저)에서 열어 주세요.', url: link }); }
+    catch (e) { /* 사용자가 공유 시트를 닫은 경우 */ }
+  } else copyLink();
+}
+// ── 발급한 초대 보관 (관리자 폰 localStorage) ──
+function loadInvites() { try { return JSON.parse(localStorage.getItem('ao_invites') || '[]'); } catch (e) { return []; } }
+function saveInvite(inv) { const l = loadInvites().filter(x => x.uid !== inv.uid); l.unshift(inv); try { localStorage.setItem('ao_invites', JSON.stringify(l.slice(0, 20))); } catch (e) {} renderInvites(); }
+function dropInvite(uid) { const l = loadInvites().filter(x => x.uid !== uid); try { localStorage.setItem('ao_invites', JSON.stringify(l)); } catch (e) {} renderInvites(); }
+function renderInvites() {
+  const box = $('inviteList'); if (!box) return;
+  const l = loadInvites();
+  box.innerHTML = l.length ? '' : '<p class="note">발급한 초대 없음</p>';
+  l.forEach(inv => {
+    const row = document.createElement('div'); row.className = 'row';
+    row.innerHTML = '<span style="flex:1;font-size:.86rem"><b>' + inv.name + '</b><br><small style="color:var(--secondary)">' + fmtT(Math.floor(inv.t / 1000)) + '</small></span>'
+      + '<button class="btn btn-primary btn-sm" data-act="share">공유</button><button class="btn btn-ghost btn-sm" data-act="qr">QR</button><button class="btn btn-ghost btn-sm" data-act="drop">목록에서 지우기</button>';
+    row.querySelector('[data-act=share]').onclick = () => { showInvite(inv.name, inv.link); shareLink(); };
+    row.querySelector('[data-act=qr]').onclick = () => showInvite(inv.name, inv.link);
+    row.querySelector('[data-act=drop]').onclick = () => dropInvite(inv.uid);
+    box.appendChild(row);
+  });
+}
 
 function renderModes() {
   const box = $('modeRows'); box.innerHTML = '';
