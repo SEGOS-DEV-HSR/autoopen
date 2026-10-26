@@ -31,12 +31,12 @@ body{margin:0;padding:0;background:var(--highlight);color:var(--text);font-famil
 .header p{margin:4px 0 0;font-size:.78rem;color:var(--secondary)}
 .header .divider{width:48px;height:3px;background:var(--primary);margin:10px auto 0;border-radius:2px}
 /* 최상위 탭(세그먼트) — 카드 버튼과 구분되게 트레이 안에 넣고, 아이콘 + 글자, 스크롤해도 위에 고정 (10/27) */
-.tabs{display:flex;gap:4px;margin:0 0 14px;padding:5px;background:#EADFD3;border-radius:16px;position:sticky;top:0;z-index:5;box-shadow:0 2px 8px rgba(197,90,17,.12)}
+#topbar{position:sticky;top:0;z-index:5;background:var(--highlight);margin:0 -14px 14px;padding:4px 14px 8px;box-shadow:0 4px 10px -6px rgba(197,90,17,.25)}   /* 상태 줄 + 탭 바를 한 덩어리로 고정 (10/27) */
+.tabs{display:flex;gap:4px;padding:5px;background:#EADFD3;border-radius:16px;box-shadow:0 2px 8px rgba(197,90,17,.12)}
 .tabs button{flex:1;flex-direction:column;justify-content:center;gap:3px;background:transparent;border:none;border-radius:12px;padding:9px 4px 7px;color:#8a6a4a;font-weight:700;font-size:.78rem;letter-spacing:.2px}
 .tabs button svg{width:22px;height:22px}
 .tabs button.on{background:var(--primary);color:#fff;box-shadow:0 2px 6px rgba(197,90,17,.35)}
 .tabs button:disabled{opacity:1}
-.tabs::before{content:'';position:absolute;left:-14px;right:-14px;top:-24px;bottom:-6px;background:var(--highlight);z-index:-1}   /* 고정 시 뒤로 지나가는 내용이 트레이 모서리·위 틈으로 비치지 않게 받침 띠 */
 .card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:16px;margin:0 0 12px;position:relative;overflow:hidden;box-shadow:0 2px 10px rgba(197,90,17,.06)}
 .card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--primary)}
 .card-title{font-weight:700;color:var(--primary);font-size:.85rem;margin:0 0 10px}
@@ -113,11 +113,13 @@ input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid v
 </div>
 
 <div id="main" class="hidden">
+<div id="topbar">
 <div class="status"><span><span id="dot" class="dot"></span><span id="connTxt">연결 중...</span> <button onclick="location.reload()" title="새로고침" style="background:none;border:1px solid var(--border);border-radius:8px;padding:2px 7px;font-size:.85rem;color:var(--secondary);margin-left:6px">↻</button></span><span><span id="who"></span> <select id="acctSel" class="hidden" style="font-size:.78rem;border:1px solid var(--border);border-radius:8px;padding:3px 6px;background:var(--white);color:var(--text)" onchange="switchAccount(this.value)"></select></span></div>
 <div class="tabs">
 <button id="tabDrawer" class="on" onclick="showTab('drawer')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><line x1="10" y1="7.5" x2="14" y2="7.5"/><line x1="10" y1="16.5" x2="14" y2="16.5"/></svg><span>서랍</span></button>
 <button id="tabLog" onclick="showTab('log')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg><span>기록</span></button>
 <button id="tabAdmin" class="hidden" onclick="showTab('admin')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>관리자</span></button>
+</div>
 </div>
 
 <div id="pDrawer">
