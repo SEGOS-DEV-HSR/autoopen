@@ -36,6 +36,7 @@ body{margin:0;padding:0;background:var(--highlight);color:var(--text);font-famil
 .tabs button svg{width:22px;height:22px}
 .tabs button.on{background:var(--primary);color:#fff;box-shadow:0 2px 6px rgba(197,90,17,.35)}
 .tabs button:disabled{opacity:1}
+.tabs::before{content:'';position:absolute;left:-14px;right:-14px;top:-24px;bottom:-6px;background:var(--highlight);z-index:-1}   /* 고정 시 뒤로 지나가는 내용이 트레이 모서리·위 틈으로 비치지 않게 받침 띠 */
 .card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:16px;margin:0 0 12px;position:relative;overflow:hidden;box-shadow:0 2px 10px rgba(197,90,17,.06)}
 .card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--primary)}
 .card-title{font-weight:700;color:var(--primary);font-size:.85rem;margin:0 0 10px}
