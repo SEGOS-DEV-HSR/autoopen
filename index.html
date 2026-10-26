@@ -32,6 +32,7 @@ body{margin:0;padding:0;background:var(--highlight);color:var(--text);font-famil
 .header .divider{width:48px;height:3px;background:var(--primary);margin:10px auto 0;border-radius:2px}
 /* 최상위 탭(세그먼트) — 카드 버튼과 구분되게 트레이 안에 넣고, 아이콘 + 글자, 스크롤해도 위에 고정 (10/27) */
 #topbar{position:sticky;top:0;z-index:5;background:var(--highlight);margin:0 -14px 14px;padding:4px 14px 8px;box-shadow:0 4px 10px -6px rgba(197,90,17,.25)}   /* 상태 줄 + 탭 바를 한 덩어리로 고정 (10/27) */
+#topbar::before{content:'';position:absolute;left:0;right:0;bottom:100%;height:calc(20px + env(safe-area-inset-top));background:var(--highlight)}   /* 스크롤 영역 위 여백(20px+안전영역)으로 내용이 비치지 않게 */
 .tabs{display:flex;gap:4px;padding:5px;background:#EADFD3;border-radius:16px;box-shadow:0 2px 8px rgba(197,90,17,.12)}
 .tabs button{flex:1;flex-direction:column;justify-content:center;gap:3px;background:transparent;border:none;border-radius:12px;padding:9px 4px 7px;color:#8a6a4a;font-weight:700;font-size:.78rem;letter-spacing:.2px}
 .tabs button svg{width:22px;height:22px}
