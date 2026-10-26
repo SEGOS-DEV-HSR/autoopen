@@ -102,7 +102,7 @@ input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid v
 <div class="card-title">등록 필요</div>
 <p class="note" id="noCredNote">이 폰은 아직 등록되지 않았습니다. 관리자가 보내준 등록 링크(또는 QR)를 이 브라우저에서 열어 주세요.<br>처음 설치라면 보드와 같은 WiFi에서 <b>http://autoopen.local/admin</b> 으로 관리자 링크를 만들 수 있습니다.</p>
 <div id="pasteWrap" style="margin-top:12px">
-<p class="note" id="pasteNote"><b>홈 화면 앱으로 여셨나요?</b> 앱은 Safari와 저장 공간이 달라 등록 정보가 안 보입니다. Safari에서 이 화면을 열고 맨 아래 <b>등록 정보 복사</b>를 누른 뒤, 아래 칸에 붙여넣으세요.</p>
+<p class="note" id="pasteNote"><b>홈 화면 앱으로 여셨나요?</b> (iPhone) 앱은 Safari와 저장 공간이 달라 등록 정보가 안 보입니다. Safari에서 이 화면을 열고 맨 아래 <b>등록 정보 복사</b>를 누른 뒤, 아래 칸에 붙여넣으세요. 다른 폰에서 쓰던 링크를 붙여넣어도 됩니다.</p>
 <input type="text" id="pasteBox" placeholder="여기에 붙여넣기" style="margin-top:8px">
 <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="importPasted()">가져오기</button>
 </div>
@@ -122,8 +122,8 @@ input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid v
 <div class="card" id="presetCard"><div class="card-title">세팅</div><div id="presetList" class="preset"></div><p class="note" id="presetNote"></p></div>
 <button class="btn btn-ghost" style="width:100%;margin:0 0 12px" onclick="startTutorial(true)">사용법 다시 보기</button>
 <div class="card" id="homeCard"><div class="card-title">홈 화면 앱으로 쓰기</div>
-<p class="note">Safari 공유 → <b>홈 화면에 추가</b>. "웹 앱으로 열기"를 켠 채 추가했다면 앱이 등록 정보를 못 보므로, 아래 버튼으로 복사한 뒤 앱의 붙여넣기 칸에 넣으면 됩니다(한 번만).</p>
-<button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="copyMyCred()">등록 정보 복사</button></div>
+<p class="note" id="homeNote">Safari 공유 → <b>홈 화면에 추가</b>. "웹 앱으로 열기"를 켠 채 추가했다면 앱이 등록 정보를 못 보므로, 아래 버튼으로 복사한 뒤 앱의 붙여넣기 칸에 넣으면 됩니다(한 번만).</p>
+<button class="btn btn-ghost" id="copyCredBtn" style="width:100%;margin-top:8px" onclick="copyMyCred()">등록 정보 복사</button></div>
 </div>
 
 <div id="pLog" class="hidden">
@@ -262,7 +262,8 @@ function myCredLink() {
   if (!cred) return '';
   return location.origin + location.pathname + '#d=' + cred.d + '&u=' + cred.u + '&k=' + cred.k + '&dk=' + cred.dk + '&h=' + cred.h + '&p=' + cred.p + '&bu=' + encodeURIComponent(cred.bu) + '&bp=' + encodeURIComponent(cred.bp) + '&n=' + encodeURIComponent(cred.n || '');
 }
-const IS_APP = (window.navigator.standalone === true) || window.matchMedia('(display-mode: standalone)').matches;   // iOS 홈 화면 앱 모드 여부
+const IS_APP = (window.navigator.standalone === true) || window.matchMedia('(display-mode: standalone)').matches;   // 홈 화면 앱 모드 여부
+const IS_IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) && !window.MSStream;   // iOS만 저장소 분리 문제가 있어 문구·복사 단계를 나눔
 
 (function bootstrap() {
   const h = location.hash.startsWith('#') ? location.hash.slice(1) : '';
@@ -325,6 +326,10 @@ async function start() {
     return;
   }
   if (IS_APP) $('homeCard').classList.add('hidden');   // 이미 앱 안이면 안내 카드 불필요
+  else if (!IS_IOS) {                                   // 안드로이드: 홈 화면 추가해도 브라우저와 저장소를 같이 쓰므로 복사 단계 불필요
+    $('homeNote').innerHTML = 'Chrome <b>⋮ 메뉴 → 홈 화면에 추가</b>를 누르면 아이콘이 생깁니다. 삼성 인터넷은 <b>≡ 메뉴 → 현재 페이지 추가 → 홈 화면</b>. 등록 정보는 그대로 유지됩니다.';
+    $('copyCredBtn').classList.add('hidden');
+  }
   $('main').classList.remove('hidden');
   keyUser = await importKey(cred.k); keyDev = await importKey(cred.dk);
   $('who').textContent = cred.n ? decodeURIComponent(cred.n) : cred.u;
@@ -419,7 +424,9 @@ function buildTutorial() {
   if (me.admin) pages.push({ tab: 'admin', target: '#pAdmin .card', t: '관리자 탭',
     b: '사용자 추가(QR 발급), 허용 서랍 체크, 칸별 금고형 PIN, 세팅 편집을 여기서 합니다. 체크를 바꾸면 바로 저장됩니다.' });
   pages.push({ tab: 'drawer', target: IS_APP ? '#connTxt' : '#homeCard', t: '홈 화면에 추가',
-    b: IS_APP ? '이미 홈 화면 앱으로 쓰고 계십니다. 화면이 안 바뀌면 옆의 <b>↻</b>를 누르세요.' : 'Safari 공유 → <b>홈 화면에 추가</b>로 앱처럼 쓸 수 있습니다. 앱으로 열렸는데 등록이 안 보이면 <b>등록 정보 복사</b> 후 앱에서 붙여넣기(한 번만).' });
+    b: IS_APP ? '이미 홈 화면 앱으로 쓰고 계십니다. 화면이 안 바뀌면 옆의 <b>↻</b>를 누르세요.'
+     : IS_IOS ? 'Safari 공유 → <b>홈 화면에 추가</b>로 앱처럼 쓸 수 있습니다. 앱으로 열렸는데 등록이 안 보이면 <b>등록 정보 복사</b> 후 앱에서 붙여넣기(한 번만).'
+     : 'Chrome <b>⋮ 메뉴 → 홈 화면에 추가</b>(삼성 인터넷은 ≡ 메뉴 → 현재 페이지 추가 → 홈 화면). 등록 정보는 그대로 유지되니 바로 쓰면 됩니다.' });
   return pages;
 }
 function maybeTutorial() {
