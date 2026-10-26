@@ -426,14 +426,16 @@ function buildTutorial() {
   const pages = [
     { tab: 'drawer', target: '#who', t: '등록되었습니다',
       b: '<b>' + (me.name || '사용자') + '</b> 님으로 이 폰이 등록되었습니다.' + (me.admin ? ' 관리자 권한이 있습니다.' : '') },
+    { tab: 'drawer', target: '.tabs', t: '화면은 탭 ' + (me.admin ? '세' : '두') + ' 개',
+      b: '<b>서랍</b> — 서랍을 여는 곳(평소 쓰는 화면)<br><b>기록</b> — 누가 언제 열었는지 보는 곳' + (me.admin ? '<br><b>관리자</b> — 사용자·권한·금고형·세팅·알림을 바꾸는 곳' : '') + '<br>아래 설명을 따라가면 탭이 저절로 바뀝니다.' },
     { tab: 'drawer', target: '#grid', t: '서랍 여는 법',
       b: '쓸 수 있는 서랍: <b>' + (allowed.length ? allowed.map(d => d + '번').join(' · ') : '없음(관리자에게 요청)') + '</b><br>버튼을 누르면 잠금이 <b>약 3초</b> 풀립니다. 그 사이에 <b>당기세요</b>. 닫으면 저절로 다시 잠깁니다.' },
     { tab: 'drawer', target: pinDr.length ? '#grid button:nth-child(' + pinDr[0] + ')' : '#connTxt', t: pinDr.length ? '금고형 칸' : '사용 중 표시',
       b: (pinDr.length ? '<b>' + pinDr.map(d => d + '번').join(' · ') + '</b> 칸은 금고형이라 누를 때마다 <b>PIN</b>을 묻습니다. 5회 틀리면 10분 잠깁니다.<br>' : '') + '다른 사람이 여는 동안은 버튼이 잠시 비활성화되고, 여기 상태 줄에 누가 쓰는지 표시됩니다.' },
-    { tab: 'log', target: '#pLog .card', t: '기록',
+    { tab: 'log', target: '#pLog .card', t: '기록 탭으로 넘어왔습니다',
       b: '누가 언제 어느 서랍을 열었는지, 거절된 시도까지 여기서 봅니다. <b>새로고침</b>을 누르면 최신 기록을 받아옵니다.' }
   ];
-  if (me.admin) pages.push({ tab: 'admin', target: '#pAdmin .card', t: '관리자 탭',
+  if (me.admin) pages.push({ tab: 'admin', target: '#pAdmin .card', t: '관리자 탭으로 넘어왔습니다',
     b: '사용자 추가(QR 발급), 허용 서랍 체크, 칸별 금고형 PIN, 세팅 편집을 여기서 합니다. 체크를 바꾸면 바로 저장됩니다.' });
   pages.push({ tab: 'drawer', target: IS_APP ? '#connTxt' : '#homeCard', t: '홈 화면에 추가',
     b: IS_APP ? '이미 홈 화면 앱으로 쓰고 계십니다. 화면이 안 바뀌면 옆의 <b>↻</b>를 누르세요.'
