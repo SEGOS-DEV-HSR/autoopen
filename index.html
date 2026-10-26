@@ -180,7 +180,8 @@ input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid v
 <div id="tutOverlay" class="hidden">
 <div id="tutSpot"></div>
 <div id="tutBox">
-<p id="tutStep"></p><h3 id="tutTitle"></h3><div id="tutBody"></div>
+<div style="display:flex;justify-content:space-between;align-items:center"><p id="tutStep"></p><button id="tutDockBtn" onclick="tutDock = this.dataset.next || 'top'; tutReplace()" style="background:var(--highlight);border:1px solid var(--border);border-radius:8px;padding:3px 8px;font-size:.72rem;color:var(--secondary)">↑ 위로 옮기기</button></div>
+<h3 id="tutTitle"></h3><div id="tutBody"></div>
 <div id="tutDots"></div>
 <div class="tutBtns"><button class="btn-ghost btn" id="tutSkip" onclick="endTutorial()">건너뛰기</button><button class="btn-ghost btn" id="tutPrev" onclick="tutPrev()">이전</button><button class="btn-primary btn" id="tutNext" onclick="tutNext()">다음</button></div>
 </div></div>
@@ -423,6 +424,7 @@ async function openDrawer(d, pin) {
 // ── 첫 사용 안내 (스포트라이트형, 10/27 개선): 계정별로 이 폰에서 처음 pong 받을 때 한 번. "사용법 다시 보기"로 재표시 ──
 //   단계마다 해당 탭으로 전환하고, 설명할 요소만 밝게 뚫어(어두운 덮개 + box-shadow 구멍) 강조. 설명 상자는 요소 아래/위에 붙음.
 let tutIdx = 0, tutPages = [], tutPrevTab = 'drawer';
+let tutDock = 'auto';   // 설명 상자 위치: auto(대상 아래→위→화면 아래) | top | bottom. 상자의 "위로/아래로 옮기기" 버튼으로 바꿈, 단계 넘어가면 auto로
 function tutKey() { return 'ao_tut_' + (cred ? cred.d + '_' + cred.u : 'x'); }
 function buildTutorial() {
   const allowed = []; for (let d = 1; d <= N; d++) if ((me.perm >> (d - 1)) & 1) allowed.push(d);
@@ -521,15 +523,24 @@ function placeTut(els) {
   box.style.visibility = 'hidden'; box.style.top = '0px';
   const bh = box.offsetHeight, bw = Math.min(360, vw - 24);
   box.style.width = bw + 'px'; box.style.left = Math.max(12, Math.min(vw - bw - 12, r.left + r.width / 2 - bw / 2)) + 'px';
+  const tbEl = $('topbar'), tbBottom = (tbEl && !tbEl.closest('.hidden')) ? tbEl.getBoundingClientRect().bottom : 0;
   const below = r.bottom + pad + 12, above = r.top - pad - 12 - bh;
-  let top = (below + bh <= vh - 12) ? below : (above >= 12 ? above : Math.max(12, (vh - bh) / 2));
+  const dockTop = Math.max(12, tbBottom + 10), dockBottom = vh - bh - 12;
+  let top, pos;
+  if (tutDock === 'top') { top = dockTop; pos = 'top'; }
+  else if (tutDock === 'bottom') { top = dockBottom; pos = 'bottom'; }
+  else if (below + bh <= vh - 12) { top = below; pos = 'bottom'; }
+  else if (above >= 12) { top = above; pos = 'top'; }
+  else { top = dockBottom; pos = 'bottom'; }                        // 어디에도 안 들어가면 가운데 대신 화면 아래에 붙임(강조 부분 윗쪽은 보이게)
   box.style.top = top + 'px'; box.style.visibility = 'visible';
+  $('tutDockBtn').textContent = (pos === 'bottom') ? '↑ 위로 옮기기' : '↓ 아래로 옮기기';
+  $('tutDockBtn').dataset.next = (pos === 'bottom') ? 'top' : 'bottom';
 }
 function tutReplace() { if (!$('tutOverlay').classList.contains('hidden') && tutPages[tutIdx]) placeTut(tutTargets(tutPages[tutIdx])); }
 window.addEventListener('resize', tutReplace);
 document.getElementById('scroller').addEventListener('scroll', tutReplace, { passive: true });   // 스크롤 중에도 구멍이 대상을 따라감
-function tutNext() { if (tutIdx < tutPages.length - 1) { tutIdx++; renderTut(); } else endTutorial(); }
-function tutPrev() { if (tutIdx > 0) { tutIdx--; renderTut(); } }
+function tutNext() { if (tutIdx < tutPages.length - 1) { tutIdx++; tutDock = 'auto'; renderTut(); } else endTutorial(); }
+function tutPrev() { if (tutIdx > 0) { tutIdx--; tutDock = 'auto'; renderTut(); } }
 function endTutorial() { $('tutOverlay').classList.add('hidden'); showTab(tutPrevTab); tutRestoreZoom(); try { localStorage.setItem(tutKey(), '1'); } catch (e) {} }
 // ── PIN 키패드 (브라우저 prompt 대신) ──
 let pinBuf = '', pinResolve = null;
