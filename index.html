@@ -153,6 +153,11 @@ input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid v
 <div id="modeRows"></div>
 <p class="note">금고형 칸은 열 때마다 PIN을 묻고, 5회 틀리면 10분 잠깁니다. 세팅(여러 칸 동시)과 보드 옆 웹·BLE로는 열 수 없습니다.</p></div>
 
+<div class="card"><div class="card-title">알림 (ntfy)</div>
+<p class="note">금고형 칸이 열리거나 PIN 5회 실패로 잠기면 관리자 폰에 알림을 보냅니다. 폰에 <b>ntfy</b> 앱(무료)을 설치하고 아래 토픽을 구독하세요. 토픽은 남이 추측 못 하게 길게(예: segos-autoopen-7k2p).</p>
+<input type="text" id="ntfyTopic" placeholder="알림 토픽 (영문·숫자·-·_), 비우면 끔" autocapitalize="off" autocorrect="off">
+<div class="row"><button class="btn btn-primary" style="flex:1" onclick="saveNtfy()">저장</button><button class="btn btn-ghost" style="flex:1" onclick="send({ op: 'ntfytest' })">테스트 알림</button></div></div>
+
 <div class="card"><div class="card-title">세팅 (여러 칸 동시 개방)</div>
 <div id="presetAdminList"></div>
 <div class="row"><span style="font-size:.82rem;font-weight:700">새 세팅</span><label><input type="checkbox" class="pp" value="1">서랍 1</label><label><input type="checkbox" class="pp" value="2">서랍 2</label><label><input type="checkbox" class="pp" value="3">서랍 3</label><button class="btn btn-primary btn-sm" onclick="addPreset()">추가</button></div>
@@ -363,13 +368,15 @@ async function start() {
   });
 }
 
+function saveNtfy() { send({ op: 'setntfy', topic: ($('ntfyTopic').value || '').trim() }); }
 function onState(s) {
+  if ($('ntfyTopic') && document.activeElement !== $('ntfyTopic')) $('ntfyTopic').value = s.ntfy || '';
   state = s;
   renderGrid(); renderPresets(); renderModes();
   if (s.busy) $('connTxt').textContent = '작동 중'; else if (client && client.connected && gotPong) $('connTxt').textContent = '연결됨';
 }
 
-const DENY_MSG = { perm: '이 서랍을 열 권한이 없습니다', pin: 'PIN이 틀렸습니다', locked: '금고형 칸이 잠겨 있습니다 (10분)', nopin: 'PIN이 설정되지 않은 칸입니다', busy: '다른 서랍이 작동 중입니다. 잠시 후 다시', replay: '시각 오류 — 폰 시계를 확인하거나 다시 시도', time: '보드 시각 동기화 대기 중. 잠시 후 다시', user: '등록되지 않은 사용자입니다. 다시 등록 링크를 받으세요', auth: '인증 실패 — 등록 정보가 바뀌었습니다', admin: '관리자만 할 수 있습니다', full: '사용자가 가득 찼습니다(8명)', self: '자기 자신은 지울 수 없습니다', pinpreset: '금고형 칸이 포함된 세팅은 쓸 수 없습니다', bad: '잘못된 요청', op: '알 수 없는 명령' };
+const DENY_MSG = { perm: '이 서랍을 열 권한이 없습니다', pin: 'PIN이 틀렸습니다', locked: '금고형 칸이 잠겨 있습니다 (10분)', nopin: 'PIN이 설정되지 않은 칸입니다', busy: '다른 서랍이 작동 중입니다. 잠시 후 다시', replay: '시각 오류 — 폰 시계를 확인하거나 다시 시도', time: '보드 시각 동기화 대기 중. 잠시 후 다시', user: '등록되지 않은 사용자입니다. 다시 등록 링크를 받으세요', auth: '인증 실패 — 등록 정보가 바뀌었습니다', admin: '관리자만 할 수 있습니다', full: '사용자가 가득 찼습니다(8명)', self: '자기 자신은 지울 수 없습니다', pinpreset: '금고형 칸이 포함된 세팅은 쓸 수 없습니다', nontfy: '알림 토픽을 먼저 저장하세요', bad: '잘못된 요청', op: '알 수 없는 명령' };
 
 function onEvt(e) {
   const mine = (e.to === cred.u);
@@ -383,6 +390,7 @@ function onEvt(e) {
   if (e.ev === 'adduser') { onAdded(e); return; }
   if (e.ev === 'mode') { state.pinmask = e.pinmask; renderGrid(); renderModes(); showMsg('모드 저장됨', 'good'); return; }
   if (e.ev === 'presets') { state.presets = e.presets || ''; renderPresets(); renderPresetAdmin(); showMsg('세팅 저장됨', 'good'); return; }
+  if (e.ev === 'ntfy') { state.ntfy = e.topic || ''; if ($('ntfyTopic') && document.activeElement !== $('ntfyTopic')) $('ntfyTopic').value = state.ntfy; showMsg(e.test ? '테스트 알림을 보냈습니다. 폰 ntfy 앱을 확인하세요' : (state.ntfy ? '알림 토픽 저장됨' : '알림 껐습니다'), 'good'); return; }
 }
 
 // ── 서랍 탭 ──
@@ -415,7 +423,7 @@ function buildTutorial() {
     { tab: 'drawer', target: '#who', t: '등록되었습니다',
       b: '<b>' + (me.name || '사용자') + '</b> 님으로 이 폰이 등록되었습니다.' + (me.admin ? ' 관리자 권한이 있습니다.' : '') },
     { tab: 'drawer', target: '#grid', t: '서랍 여는 법',
-      b: '쓸 수 있는 서랍: <b>' + (allowed.length ? allowed.map(d => d + '번').join(' · ') : '없음(관리자에게 요청)') + '</b><br>버튼을 누르면 잠금이 <b>약 1.5초</b> 풀립니다. 그 사이에 <b>당기세요</b>. 닫으면 저절로 다시 잠깁니다.' },
+      b: '쓸 수 있는 서랍: <b>' + (allowed.length ? allowed.map(d => d + '번').join(' · ') : '없음(관리자에게 요청)') + '</b><br>버튼을 누르면 잠금이 <b>약 3초</b> 풀립니다. 그 사이에 <b>당기세요</b>. 닫으면 저절로 다시 잠깁니다.' },
     { tab: 'drawer', target: pinDr.length ? '#grid button:nth-child(' + pinDr[0] + ')' : '#connTxt', t: pinDr.length ? '금고형 칸' : '사용 중 표시',
       b: (pinDr.length ? '<b>' + pinDr.map(d => d + '번').join(' · ') + '</b> 칸은 금고형이라 누를 때마다 <b>PIN</b>을 묻습니다. 5회 틀리면 10분 잠깁니다.<br>' : '') + '다른 사람이 여는 동안은 버튼이 잠시 비활성화되고, 여기 상태 줄에 누가 쓰는지 표시됩니다.' },
     { tab: 'log', target: '#pLog .card', t: '기록',
