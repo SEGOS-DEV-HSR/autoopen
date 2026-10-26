@@ -62,7 +62,7 @@ button:disabled{opacity:.4;cursor:default;transform:none!important}
 #tutBox{position:absolute;background:var(--white);border-radius:16px;padding:16px 16px 14px;box-shadow:0 8px 30px rgba(0,0,0,.3)}
 #tutStep{font-size:.72rem;color:var(--secondary);margin:0 0 4px}
 #tutTitle{margin:0 0 8px;color:var(--primary);font-size:1.05rem}
-#tutBody{font-size:.9rem;line-height:1.55}
+#tutBody{font-size:.9rem;line-height:1.55;word-break:keep-all;overflow-wrap:anywhere;text-wrap:pretty}   /* 한국어는 단어 중간에서 안 끊고 띄어쓰기에서만 줄바꿈 */
 #tutBody b{color:var(--primary)}
 #tutDots{display:flex;gap:6px;justify-content:center;margin:12px 0 10px}
 #tutDots span{width:8px;height:8px;border-radius:50%;background:var(--border)}
@@ -97,7 +97,8 @@ input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid v
 #qrBox{display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px 0}
 #qrBox img,#qrBox canvas{border:8px solid #fff;border-radius:8px}
 .linkbox{word-break:break-all;font-size:.72rem;color:var(--secondary);background:var(--highlight);padding:8px;border-radius:8px}
-.note{font-size:.78rem;color:var(--secondary);line-height:1.5}
+.note{font-size:.78rem;color:var(--secondary);line-height:1.5;word-break:keep-all;overflow-wrap:anywhere}
+#msg,.drawer-btn small,#tutTitle{word-break:keep-all}
 </style></head><body>
 <div id="scroller">
 <div class="app">
@@ -430,7 +431,7 @@ function buildTutorial() {
     { tab: 'drawer', target: '#who', t: '등록되었습니다',
       b: '<b>' + (me.name || '사용자') + '</b> 님으로 이 폰이 등록되었습니다.' + (me.admin ? ' 관리자 권한이 있습니다.' : '') },
     { tab: 'drawer', target: '.tabs', t: '화면은 탭 ' + (me.admin ? '세' : '두') + ' 개',
-      b: '<b>서랍</b> — 서랍을 여는 곳(평소 쓰는 화면)<br><b>기록</b> — 누가 언제 열었는지 보는 곳' + (me.admin ? '<br><b>관리자</b> — 사용자·권한·금고형·세팅·알림을 바꾸는 곳' : '') + '<br>아래 설명을 따라가면 탭이 저절로 바뀝니다.' },
+      b: '<b>서랍</b> — 서랍을 여는 곳(평소 쓰는 화면)<br><b>기록</b> — 누가 언제 열었는지 보는 곳' + (me.admin ? '<br><b>관리자</b> — 사용자·권한·금고형·세팅·알림을 바꾸는 곳' : '') },
     { tab: 'drawer', target: '#grid', t: '서랍 여는 법',
       b: '쓸 수 있는 서랍: <b>' + (allowed.length ? allowed.map(d => d + '번').join(' · ') : '없음(관리자에게 요청)') + '</b><br>버튼을 누르면 잠금이 <b>약 3초</b> 풀립니다. 그 사이에 <b>당기세요</b>. 닫으면 저절로 다시 잠깁니다.' },
     { tab: 'drawer', target: pinDr.length ? '#grid button:nth-child(' + pinDr[0] + ')' : '#connTxt', t: pinDr.length ? '금고형 칸' : '사용 중 표시',
@@ -438,8 +439,15 @@ function buildTutorial() {
     { tab: 'log', target: '#pLog .card', t: '기록 탭으로 넘어왔습니다',
       b: '누가 언제 어느 서랍을 열었는지, 거절된 시도까지 여기서 봅니다. <b>새로고침</b>을 누르면 최신 기록을 받아옵니다.' }
   ];
-  if (me.admin) pages.push({ tab: 'admin', target: '#pAdmin .card', t: '관리자 탭으로 넘어왔습니다',
-    b: '사용자 추가(QR 발급), 허용 서랍 체크, 칸별 금고형 PIN, 세팅 편집을 여기서 합니다. 체크를 바꾸면 바로 저장됩니다.' });
+  if (me.admin) {
+    // 관리자 탭은 카드별로 나눠서 실제 위치를 각각 비춤 (target이 배열이면 여러 요소를 합친 영역을 강조)
+    pages.push({ tab: 'admin', target: ['#pAdmin .card:nth-of-type(1)', '#pAdmin .card:nth-of-type(2)'], t: '관리자 탭 — 사용자',
+      b: '위 표에서 사람마다 <b>허용 서랍</b>과 <b>관리자</b> 여부를 체크합니다. 바꾸면 바로 저장됩니다.<br>아래 <b>사용자 추가</b>로 이름을 넣고 QR을 만들어 상대 폰으로 찍게 하면 등록됩니다.' });
+    pages.push({ tab: 'admin', target: '#pAdmin .card:nth-of-type(4)', t: '관리자 탭 — 금고형',
+      b: '칸마다 <b>일반 / 금고형</b>을 정합니다. PIN을 넣고 "금고형으로"를 누르면 그 칸은 열 때마다 PIN을 묻습니다.' });
+    pages.push({ tab: 'admin', target: ['#pAdmin .card:nth-of-type(5)', '#pAdmin .card:nth-of-type(6)'], t: '관리자 탭 — 알림·세팅',
+      b: '<b>알림</b>: ntfy 토픽을 저장하면 금고형 칸이 열리거나 PIN이 잠길 때 폰으로 알림이 옵니다.<br><b>세팅</b>: 여러 칸을 한 번에 여는 조합을 만듭니다.' });
+  }
   pages.push({ tab: 'drawer', target: IS_APP ? '#connTxt' : '#homeCard', t: '홈 화면에 추가',
     b: IS_APP ? '이미 홈 화면 앱으로 쓰고 계십니다. 화면이 안 바뀌면 옆의 <b>↻</b>를 누르세요.'
      : IS_IOS ? 'Safari 공유 → <b>홈 화면에 추가</b>로 앱처럼 쓸 수 있습니다. 앱으로 열렸는데 등록이 안 보이면 <b>등록 정보 복사</b> 후 앱에서 붙여넣기(한 번만).'
@@ -481,15 +489,25 @@ function renderTut() {
   $('tutSkip').classList.toggle('hidden', tutIdx === tutPages.length - 1);
   $('tutPrev').classList.toggle('hidden', tutIdx === 0);   // 첫 장에는 이전 없음
   // 대상 요소를 화면에 보이게 스크롤한 뒤 구멍·상자 배치 (레이아웃 반영을 위해 한 프레임 뒤)
-  const el = document.querySelector(p.target);
-  if (el) el.scrollIntoView({ block: 'center' });
-  placeTut(el);                                  // 즉시 한 번
+  const els = tutTargets(p);
+  if (els.length) els[0].scrollIntoView({ block: els.length > 1 ? 'start' : 'center' });   // 여러 개면 첫 요소를 위쪽에 맞춰 아래 것도 보이게
+  placeTut(els);                                 // 즉시 한 번
   [60, 200, 450].forEach(ms => setTimeout(tutReplace, ms));   // 스크롤·레이아웃 반영 뒤 재배치 (rAF는 백그라운드 탭에서 안 돎)
 }
-function placeTut(el) {
+function tutTargets(p) {                        // target(문자열 또는 배열) → 요소 배열
+  const sels = Array.isArray(p.target) ? p.target : [p.target];
+  return sels.map(s => document.querySelector(s)).filter(Boolean);
+}
+function unionRect(els) {                        // 여러 요소를 모두 감싸는 사각형
+  let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
+  els.forEach(e => { const q = e.getBoundingClientRect(); l = Math.min(l, q.left); t = Math.min(t, q.top); r = Math.max(r, q.right); b = Math.max(b, q.bottom); });
+  return { left: l, top: t, right: r, bottom: b, width: r - l, height: b - t };
+}
+function placeTut(els) {
+  if (els && !Array.isArray(els)) els = [els];
   const spot = $('tutSpot'), box = $('tutBox');
   const pad = 8, vw = window.innerWidth, vh = window.innerHeight;
-  let r = el ? el.getBoundingClientRect() : { left: vw / 2 - 1, top: vh / 2 - 1, width: 2, height: 2, bottom: vh / 2 + 1 };
+  let r = (els && els.length) ? unionRect(els) : { left: vw / 2 - 1, top: vh / 2 - 1, width: 2, height: 2, bottom: vh / 2 + 1 };
   spot.style.left = (r.left - pad) + 'px'; spot.style.top = (r.top - pad) + 'px';
   spot.style.width = (r.width + 2 * pad) + 'px'; spot.style.height = (r.height + 2 * pad) + 'px';
   box.style.visibility = 'hidden'; box.style.top = '0px';
@@ -499,7 +517,7 @@ function placeTut(el) {
   let top = (below + bh <= vh - 12) ? below : (above >= 12 ? above : Math.max(12, (vh - bh) / 2));
   box.style.top = top + 'px'; box.style.visibility = 'visible';
 }
-function tutReplace() { if (!$('tutOverlay').classList.contains('hidden') && tutPages[tutIdx]) placeTut(document.querySelector(tutPages[tutIdx].target)); }
+function tutReplace() { if (!$('tutOverlay').classList.contains('hidden') && tutPages[tutIdx]) placeTut(tutTargets(tutPages[tutIdx])); }
 window.addEventListener('resize', tutReplace);
 document.getElementById('scroller').addEventListener('scroll', tutReplace, { passive: true });   // 스크롤 중에도 구멍이 대상을 따라감
 function tutNext() { if (tutIdx < tutPages.length - 1) { tutIdx++; renderTut(); } else endTutorial(); }
