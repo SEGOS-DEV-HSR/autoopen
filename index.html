@@ -51,18 +51,19 @@ button:disabled{opacity:.4;cursor:default;transform:none!important}
 #msg{margin-top:6px;min-height:2.4em;white-space:pre-line;text-align:center;font-size:.85rem}
 #msg.bad{color:var(--danger);font-weight:700}
 #msg.good{color:var(--ok);font-weight:700}
-/* 첫 사용 안내(튜토리얼) (10/27) */
-#tutOverlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:60;padding:20px}
-#tutBox{background:var(--white);border-radius:18px;padding:22px 20px 18px;width:100%;max-width:360px;box-shadow:0 8px 30px rgba(0,0,0,.25)}
-#tutStep{font-size:.75rem;color:var(--secondary);margin:0 0 6px}
-#tutTitle{margin:0 0 10px;color:var(--primary);font-size:1.1rem}
-#tutBody{font-size:.92rem;line-height:1.6;min-height:5.5em}
+/* 첫 사용 안내(스포트라이트형) (10/27) — 덮개는 투명, #tutSpot의 거대한 box-shadow가 구멍 밖을 어둡게 함 */
+#tutOverlay{position:fixed;inset:0;z-index:60;overflow:hidden}
+#tutSpot{position:absolute;border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,.6),0 0 0 3px var(--primary);pointer-events:none}
+#tutBox{position:absolute;background:var(--white);border-radius:16px;padding:16px 16px 14px;box-shadow:0 8px 30px rgba(0,0,0,.3)}
+#tutStep{font-size:.72rem;color:var(--secondary);margin:0 0 4px}
+#tutTitle{margin:0 0 8px;color:var(--primary);font-size:1.05rem}
+#tutBody{font-size:.9rem;line-height:1.55}
 #tutBody b{color:var(--primary)}
-#tutDots{display:flex;gap:6px;justify-content:center;margin:14px 0}
+#tutDots{display:flex;gap:6px;justify-content:center;margin:12px 0 10px}
 #tutDots span{width:8px;height:8px;border-radius:50%;background:var(--border)}
 #tutDots span.on{background:var(--primary)}
 .tutBtns{display:flex;gap:8px}
-.tutBtns button{flex:1;justify-content:center;border-radius:10px;padding:12px;font-weight:700;font-size:.9rem}
+.tutBtns button{flex:1;justify-content:center;border-radius:10px;padding:11px;font-weight:700;font-size:.9rem}
 /* PIN 키패드 (10/27) */
 #pinOverlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:50}
 #pinBox{background:var(--white);border-radius:18px 18px 0 0;padding:18px 16px 28px;width:100%;max-width:400px;box-shadow:0 -4px 20px rgba(0,0,0,.2)}
@@ -159,7 +160,13 @@ input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid v
 </div>
 
 <div id="msg"></div>
-<div id="tutOverlay" class="hidden"><div id="tutBox">
+</div>
+</div>
+</div>
+<!-- 오버레이는 스크롤 영역 밖(body 직계): fixed 요소가 overflow 스크롤러 안에 있으면 iOS에서 기준이 틀어질 수 있음 -->
+<div id="tutOverlay" class="hidden">
+<div id="tutSpot"></div>
+<div id="tutBox">
 <p id="tutStep"></p><h3 id="tutTitle"></h3><div id="tutBody"></div>
 <div id="tutDots"></div>
 <div class="tutBtns"><button class="btn-ghost btn" id="tutSkip" onclick="endTutorial()">건너뛰기</button><button class="btn-primary btn" id="tutNext" onclick="tutNext()">다음</button></div>
@@ -174,9 +181,6 @@ input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid v
 <button class="act" onclick="pinKey('cancel')">취소</button><button onclick="pinKey('0')">0</button><button class="act" onclick="pinKey('del')">⌫</button>
 <button class="ok" style="grid-column:1/4" onclick="pinKey('ok')">확인</button>
 </div></div></div>
-</div>
-</div>
-</div>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -395,18 +399,27 @@ async function openDrawer(d, pin) {
   else send({ op: 'open', d: d });
 }
 
-// ── 첫 사용 안내 (계정별로 이 폰에서 처음 pong 받을 때 한 번. "사용법 다시 보기"로 재표시) ──
-let tutIdx = 0, tutPages = [];
+// ── 첫 사용 안내 (스포트라이트형, 10/27 개선): 계정별로 이 폰에서 처음 pong 받을 때 한 번. "사용법 다시 보기"로 재표시 ──
+//   단계마다 해당 탭으로 전환하고, 설명할 요소만 밝게 뚫어(어두운 덮개 + box-shadow 구멍) 강조. 설명 상자는 요소 아래/위에 붙음.
+let tutIdx = 0, tutPages = [], tutPrevTab = 'drawer';
 function tutKey() { return 'ao_tut_' + (cred ? cred.d + '_' + cred.u : 'x'); }
 function buildTutorial() {
   const allowed = []; for (let d = 1; d <= N; d++) if ((me.perm >> (d - 1)) & 1) allowed.push(d);
   const pinDr = []; for (let d = 1; d <= N; d++) if (((state.pinmask >> (d - 1)) & 1) && allowed.includes(d)) pinDr.push(d);
   const pages = [
-    { t: '등록되었습니다', b: '<b>' + (me.name || '사용자') + '</b> 님으로 이 폰이 등록되었습니다.<br>쓸 수 있는 서랍: <b>' + (allowed.length ? allowed.map(d => d + '번').join(' · ') : '없음(관리자에게 요청)') + '</b>' + (me.admin ? '<br>관리자 권한이 있어 <b>관리자 탭</b>에서 사용자·세팅·금고형을 바꿀 수 있습니다.' : '') },
-    { t: '서랍 여는 법', b: '서랍 버튼을 누르면 잠금이 <b>약 1.5초</b> 동안 풀립니다.<br>그 사이에 <b>서랍을 당기세요</b>. 늦으면 다시 누르면 됩니다.<br>서랍을 밀어 닫으면 <b>저절로 다시 잠깁니다</b>.' },
-    { t: pinDr.length ? '금고형 칸과 사용 중 표시' : '사용 중 표시', b: (pinDr.length ? '<b>' + pinDr.map(d => d + '번').join(' · ') + '</b> 칸은 금고형이라 누를 때마다 <b>PIN</b>을 묻습니다. 5회 틀리면 10분 잠깁니다.<br>' : '') + '다른 사람이 서랍을 여는 동안은 버튼이 잠시 비활성화되고 누가 쓰는지 표시됩니다.<br><b>기록</b> 탭에서 누가 언제 열었는지 볼 수 있습니다.' },
-    { t: '홈 화면에 추가', b: IS_APP ? '이미 홈 화면 앱으로 쓰고 계십니다. 앞으로는 아이콘만 누르면 됩니다.' : 'Safari 아래 <b>공유 버튼 → 홈 화면에 추가</b>를 하면 앱처럼 쓸 수 있습니다.<br>앱으로 열렸는데 등록이 안 보이면, 이 화면 아래 <b>등록 정보 복사</b>를 눌러 앱의 붙여넣기 칸에 넣으세요(한 번만).' }
+    { tab: 'drawer', target: '#who', t: '등록되었습니다',
+      b: '<b>' + (me.name || '사용자') + '</b> 님으로 이 폰이 등록되었습니다.' + (me.admin ? ' 관리자 권한이 있습니다.' : '') },
+    { tab: 'drawer', target: '#grid', t: '서랍 여는 법',
+      b: '쓸 수 있는 서랍: <b>' + (allowed.length ? allowed.map(d => d + '번').join(' · ') : '없음(관리자에게 요청)') + '</b><br>버튼을 누르면 잠금이 <b>약 1.5초</b> 풀립니다. 그 사이에 <b>당기세요</b>. 닫으면 저절로 다시 잠깁니다.' },
+    { tab: 'drawer', target: pinDr.length ? '#grid button:nth-child(' + pinDr[0] + ')' : '#connTxt', t: pinDr.length ? '금고형 칸' : '사용 중 표시',
+      b: (pinDr.length ? '<b>' + pinDr.map(d => d + '번').join(' · ') + '</b> 칸은 금고형이라 누를 때마다 <b>PIN</b>을 묻습니다. 5회 틀리면 10분 잠깁니다.<br>' : '') + '다른 사람이 여는 동안은 버튼이 잠시 비활성화되고, 여기 상태 줄에 누가 쓰는지 표시됩니다.' },
+    { tab: 'log', target: '#pLog .card', t: '기록',
+      b: '누가 언제 어느 서랍을 열었는지, 거절된 시도까지 여기서 봅니다. <b>새로고침</b>을 누르면 최신 기록을 받아옵니다.' }
   ];
+  if (me.admin) pages.push({ tab: 'admin', target: '#pAdmin .card', t: '관리자 탭',
+    b: '사용자 추가(QR 발급), 허용 서랍 체크, 칸별 금고형 PIN, 세팅 편집을 여기서 합니다. 체크를 바꾸면 바로 저장됩니다.' });
+  pages.push({ tab: 'drawer', target: IS_APP ? '#connTxt' : '#homeCard', t: '홈 화면에 추가',
+    b: IS_APP ? '이미 홈 화면 앱으로 쓰고 계십니다. 화면이 안 바뀌면 옆의 <b>↻</b>를 누르세요.' : 'Safari 공유 → <b>홈 화면에 추가</b>로 앱처럼 쓸 수 있습니다. 앱으로 열렸는데 등록이 안 보이면 <b>등록 정보 복사</b> 후 앱에서 붙여넣기(한 번만).' });
   return pages;
 }
 function maybeTutorial() {
@@ -414,20 +427,43 @@ function maybeTutorial() {
   if (!seen) startTutorial(false);
 }
 function startTutorial(manual) {
-  tutPages = buildTutorial(); tutIdx = 0; renderTut();
+  tutPages = buildTutorial(); tutIdx = 0;
+  tutPrevTab = ['drawer', 'log', 'admin'].find(t => !$('p' + ({ drawer: 'Drawer', log: 'Log', admin: 'Admin' })[t]).classList.contains('hidden')) || 'drawer';
   $('tutOverlay').classList.remove('hidden');
+  renderTut();
 }
 function renderTut() {
   const p = tutPages[tutIdx];
+  showTab(p.tab);
   $('tutStep').textContent = (tutIdx + 1) + ' / ' + tutPages.length;
   $('tutTitle').textContent = p.t; $('tutBody').innerHTML = p.b;
   $('tutDots').innerHTML = tutPages.map((_, i) => '<span class="' + (i === tutIdx ? 'on' : '') + '"></span>').join('');
   $('tutNext').textContent = (tutIdx === tutPages.length - 1) ? '시작하기' : '다음';
   $('tutSkip').classList.toggle('hidden', tutIdx === tutPages.length - 1);
+  // 대상 요소를 화면에 보이게 스크롤한 뒤 구멍·상자 배치 (레이아웃 반영을 위해 한 프레임 뒤)
+  const el = document.querySelector(p.target);
+  if (el) el.scrollIntoView({ block: 'center' });
+  placeTut(el);                                  // 즉시 한 번
+  [60, 200, 450].forEach(ms => setTimeout(tutReplace, ms));   // 스크롤·레이아웃 반영 뒤 재배치 (rAF는 백그라운드 탭에서 안 돎)
 }
+function placeTut(el) {
+  const spot = $('tutSpot'), box = $('tutBox');
+  const pad = 8, vw = window.innerWidth, vh = window.innerHeight;
+  let r = el ? el.getBoundingClientRect() : { left: vw / 2 - 1, top: vh / 2 - 1, width: 2, height: 2, bottom: vh / 2 + 1 };
+  spot.style.left = (r.left - pad) + 'px'; spot.style.top = (r.top - pad) + 'px';
+  spot.style.width = (r.width + 2 * pad) + 'px'; spot.style.height = (r.height + 2 * pad) + 'px';
+  box.style.visibility = 'hidden'; box.style.top = '0px';
+  const bh = box.offsetHeight, bw = Math.min(360, vw - 24);
+  box.style.width = bw + 'px'; box.style.left = Math.max(12, Math.min(vw - bw - 12, r.left + r.width / 2 - bw / 2)) + 'px';
+  const below = r.bottom + pad + 12, above = r.top - pad - 12 - bh;
+  let top = (below + bh <= vh - 12) ? below : (above >= 12 ? above : Math.max(12, (vh - bh) / 2));
+  box.style.top = top + 'px'; box.style.visibility = 'visible';
+}
+function tutReplace() { if (!$('tutOverlay').classList.contains('hidden') && tutPages[tutIdx]) placeTut(document.querySelector(tutPages[tutIdx].target)); }
+window.addEventListener('resize', tutReplace);
+document.getElementById('scroller').addEventListener('scroll', tutReplace, { passive: true });   // 스크롤 중에도 구멍이 대상을 따라감
 function tutNext() { if (tutIdx < tutPages.length - 1) { tutIdx++; renderTut(); } else endTutorial(); }
-function endTutorial() { $('tutOverlay').classList.add('hidden'); try { localStorage.setItem(tutKey(), '1'); } catch (e) {} }
-
+function endTutorial() { $('tutOverlay').classList.add('hidden'); showTab(tutPrevTab); try { localStorage.setItem(tutKey(), '1'); } catch (e) {} }
 // ── PIN 키패드 (브라우저 prompt 대신) ──
 let pinBuf = '', pinResolve = null;
 function askPin(title) {
