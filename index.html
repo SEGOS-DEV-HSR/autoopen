@@ -161,7 +161,7 @@ input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid v
 <div id="modeRows"></div>
 <p class="note">금고형 칸은 열 때마다 PIN을 묻고, 5회 틀리면 10분 잠깁니다. 세팅(여러 칸 동시)과 보드 옆 웹·BLE로는 열 수 없습니다.</p></div>
 
-<div class="card"><div class="card-title">알림 (ntfy)</div>
+<div class="card hidden" id="ntfyCard"><div class="card-title">알림 (ntfy)</div><!-- 10/27 보류: ntfy 앱 설치가 필요해 당분간 숨김. 펌웨어·명령은 그대로 살아 있음. 다시 켜려면 hidden 제거 -->
 <p class="note">금고형 칸이 열리거나 PIN 5회 실패로 잠기면 관리자 폰에 알림을 보냅니다. 폰에 <b>ntfy</b> 앱(무료)을 설치하고 아래 토픽을 구독하세요. 토픽은 남이 추측 못 하게 길게(예: segos-autoopen-7k2p).</p>
 <input type="text" id="ntfyTopic" placeholder="알림 토픽 (영문·숫자·-·_), 비우면 끔" autocapitalize="off" autocorrect="off">
 <div class="row"><button class="btn btn-primary" style="flex:1" onclick="saveNtfy()">저장</button><button class="btn btn-ghost" style="flex:1" onclick="send({ op: 'ntfytest' })">테스트 알림</button></div></div>
@@ -180,8 +180,7 @@ input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid v
 <div id="tutOverlay" class="hidden">
 <div id="tutSpot"></div>
 <div id="tutBox">
-<div style="display:flex;justify-content:space-between;align-items:center"><p id="tutStep"></p><button id="tutDockBtn" onclick="tutDock = this.dataset.next || 'top'; tutReplace()" style="background:var(--highlight);border:1px solid var(--border);border-radius:8px;padding:3px 8px;font-size:.72rem;color:var(--secondary)">↑ 위로 옮기기</button></div>
-<h3 id="tutTitle"></h3><div id="tutBody"></div>
+<p id="tutStep"></p><h3 id="tutTitle"></h3><div id="tutBody"></div>
 <div id="tutDots"></div>
 <div class="tutBtns"><button class="btn-ghost btn" id="tutSkip" onclick="endTutorial()">건너뛰기</button><button class="btn-ghost btn" id="tutPrev" onclick="tutPrev()">이전</button><button class="btn-primary btn" id="tutNext" onclick="tutNext()">다음</button></div>
 </div></div>
@@ -443,12 +442,15 @@ function buildTutorial() {
   ];
   if (me.admin) {
     // 관리자 탭은 카드별로 나눠서 실제 위치를 각각 비춤 (target이 배열이면 여러 요소를 합친 영역을 강조)
-    pages.push({ tab: 'admin', target: ['#pAdmin .card:nth-of-type(1)', '#pAdmin .card:nth-of-type(2)'], t: '관리자 탭 — 사용자',
-      b: '위 표에서 사람마다 <b>허용 서랍</b>과 <b>관리자</b> 여부를 체크합니다. 바꾸면 바로 저장됩니다.<br>아래 <b>사용자 추가</b>로 이름을 넣고 QR을 만들어 상대 폰으로 찍게 하면 등록됩니다.' });
-    pages.push({ tab: 'admin', target: '#pAdmin .card:nth-of-type(4)', t: '관리자 탭 — 금고형',
+    // dock: 설명 상자 위치를 단계마다 고정 ('bottom' = 대상 아래(안 맞으면 화면 아래), 'top' = 대상 위(안 맞으면 화면 위))
+    pages.push({ tab: 'admin', target: '#pAdmin .card:nth-of-type(1)', dock: 'bottom', t: '관리자 탭 — 허용 서랍',
+      b: '사람마다 <b>허용 서랍</b>과 <b>관리자</b> 여부를 체크합니다. 바꾸면 바로 저장됩니다. 자기 자신은 삭제·관리자 해제가 안 됩니다.' });
+    pages.push({ tab: 'admin', target: '#pAdmin .card:nth-of-type(2)', dock: 'top', t: '관리자 탭 — 사용자 추가',
+      b: '이름을 넣고 허용 서랍을 체크한 뒤 <b>추가하고 등록 QR 만들기</b>. 상대 폰으로 QR을 찍거나 공유하기로 링크를 보내면 등록됩니다.' });
+    pages.push({ tab: 'admin', target: '#pAdmin .card:nth-of-type(4)', dock: 'bottom', t: '관리자 탭 — 금고형',
       b: '칸마다 <b>일반 / 금고형</b>을 정합니다. PIN을 넣고 "금고형으로"를 누르면 그 칸은 열 때마다 PIN을 묻습니다.' });
-    pages.push({ tab: 'admin', target: ['#pAdmin .card:nth-of-type(5)', '#pAdmin .card:nth-of-type(6)'], t: '관리자 탭 — 알림·세팅',
-      b: '<b>알림</b>: ntfy 토픽을 저장하면 금고형 칸이 열리거나 PIN이 잠길 때 폰으로 알림이 옵니다.<br><b>세팅</b>: 여러 칸을 한 번에 여는 조합을 만듭니다.' });
+    pages.push({ tab: 'admin', target: '#pAdmin .card:nth-of-type(6)', dock: 'auto', t: '관리자 탭 — 세팅',
+      b: '여러 칸을 한 번에 여는 조합(세팅)을 만듭니다. 서랍 탭에 버튼으로 나타납니다.' });
   }
   pages.push({ tab: 'drawer', target: IS_APP ? '#connTxt' : '#homeCard', t: '홈 화면에 추가',
     b: IS_APP ? '이미 홈 화면 앱으로 쓰고 계십니다. 화면이 안 바뀌면 옆의 <b>↻</b>를 누르세요.'
@@ -491,9 +493,11 @@ function renderTut() {
   $('tutSkip').classList.toggle('hidden', tutIdx === tutPages.length - 1);
   $('tutPrev').classList.toggle('hidden', tutIdx === 0);   // 첫 장에는 이전 없음
   // 대상 요소를 화면에 보이게 스크롤한 뒤 구멍·상자 배치 (레이아웃 반영을 위해 한 프레임 뒤)
+  tutDock = p.dock || 'auto';
   const els = tutTargets(p);
   if (els.length) {
-    els[0].scrollIntoView({ block: els.length > 1 ? 'start' : 'center' });   // 여러 개면 첫 요소를 위쪽에 맞춰 아래 것도 보이게
+    // 상자를 아래에 둘 단계는 대상을 위쪽으로, 위에 둘 단계는 대상을 아래쪽으로 스크롤해 공간을 만듦
+    els[0].scrollIntoView({ block: tutDock === 'top' ? 'end' : (tutDock === 'bottom' || els.length > 1) ? 'start' : 'center' });
     // 상단 고정 바(상태 줄+탭) 아래로 대상이 숨지 않게 보정
     const tb = $('topbar'), sc = $('scroller');
     if (tb && sc && !tb.closest('.hidden')) {
@@ -527,14 +531,12 @@ function placeTut(els) {
   const below = r.bottom + pad + 12, above = r.top - pad - 12 - bh;
   const dockTop = Math.max(12, tbBottom + 10), dockBottom = vh - bh - 12;
   let top, pos;
-  if (tutDock === 'top') { top = dockTop; pos = 'top'; }
-  else if (tutDock === 'bottom') { top = dockBottom; pos = 'bottom'; }
+  if (tutDock === 'top') { top = Math.max(12, above); pos = 'top'; }                                      // 대상 바로 위. 공간이 모자라면 상단 고정 바를 덮더라도 대상은 안 가림
+  else if (tutDock === 'bottom') { top = (below + bh <= vh - 12) ? below : dockBottom; pos = 'bottom'; }  // 대상 아래, 안 맞으면 화면 아래
   else if (below + bh <= vh - 12) { top = below; pos = 'bottom'; }
   else if (above >= 12) { top = above; pos = 'top'; }
   else { top = dockBottom; pos = 'bottom'; }                        // 어디에도 안 들어가면 가운데 대신 화면 아래에 붙임(강조 부분 윗쪽은 보이게)
   box.style.top = top + 'px'; box.style.visibility = 'visible';
-  $('tutDockBtn').textContent = (pos === 'bottom') ? '↑ 위로 옮기기' : '↓ 아래로 옮기기';
-  $('tutDockBtn').dataset.next = (pos === 'bottom') ? 'top' : 'bottom';
 }
 function tutReplace() { if (!$('tutOverlay').classList.contains('hidden') && tutPages[tutIdx]) placeTut(tutTargets(tutPages[tutIdx])); }
 window.addEventListener('resize', tutReplace);
