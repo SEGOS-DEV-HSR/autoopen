@@ -108,7 +108,7 @@ input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid v
 </div>
 
 <div id="main" class="hidden">
-<div class="status"><span><span id="dot" class="dot"></span><span id="connTxt">연결 중...</span></span><span><span id="who"></span> <select id="acctSel" class="hidden" style="font-size:.78rem;border:1px solid var(--border);border-radius:8px;padding:3px 6px;background:var(--white);color:var(--text)" onchange="switchAccount(this.value)"></select></span></div>
+<div class="status"><span><span id="dot" class="dot"></span><span id="connTxt">연결 중...</span> <button onclick="location.reload()" title="새로고침" style="background:none;border:1px solid var(--border);border-radius:8px;padding:2px 7px;font-size:.85rem;color:var(--secondary);margin-left:6px">↻</button></span><span><span id="who"></span> <select id="acctSel" class="hidden" style="font-size:.78rem;border:1px solid var(--border);border-radius:8px;padding:3px 6px;background:var(--white);color:var(--text)" onchange="switchAccount(this.value)"></select></span></div>
 <div class="tabs">
 <button id="tabDrawer" class="on" onclick="showTab('drawer')">서랍</button>
 <button id="tabLog" onclick="showTab('log')">기록</button>
