@@ -83,7 +83,12 @@ input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid v
 
 <div id="noCred" class="card hidden">
 <div class="card-title">등록 필요</div>
-<p class="note">이 폰은 아직 등록되지 않았습니다. 관리자가 보내준 등록 링크(또는 QR)를 이 브라우저에서 열어 주세요.<br>처음 설치라면 보드와 같은 WiFi에서 <b>http://autoopen.local/admin</b> 으로 관리자 링크를 만들 수 있습니다.</p>
+<p class="note" id="noCredNote">이 폰은 아직 등록되지 않았습니다. 관리자가 보내준 등록 링크(또는 QR)를 이 브라우저에서 열어 주세요.<br>처음 설치라면 보드와 같은 WiFi에서 <b>http://autoopen.local/admin</b> 으로 관리자 링크를 만들 수 있습니다.</p>
+<div id="pasteWrap" style="margin-top:12px">
+<p class="note" id="pasteNote"><b>홈 화면 앱으로 여셨나요?</b> 앱은 Safari와 저장 공간이 달라 등록 정보가 안 보입니다. Safari에서 이 화면을 열고 맨 아래 <b>등록 정보 복사</b>를 누른 뒤, 아래 칸에 붙여넣으세요.</p>
+<input type="text" id="pasteBox" placeholder="여기에 붙여넣기" style="margin-top:8px">
+<button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="importPasted()">가져오기</button>
+</div>
 </div>
 
 <div id="main" class="hidden">
@@ -98,6 +103,9 @@ input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid v
 <div class="card"><div class="card-title">서랍 제어</div>
 <div class="drawer-grid" id="grid"></div></div>
 <div class="card" id="presetCard"><div class="card-title">세팅</div><div id="presetList" class="preset"></div><p class="note" id="presetNote"></p></div>
+<div class="card" id="homeCard"><div class="card-title">홈 화면 앱으로 쓰기</div>
+<p class="note">Safari 공유 → <b>홈 화면에 추가</b>. "웹 앱으로 열기"를 켠 채 추가했다면 앱이 등록 정보를 못 보므로, 아래 버튼으로 복사한 뒤 앱의 붙여넣기 칸에 넣으면 됩니다(한 번만).</p>
+<button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="copyMyCred()">등록 정보 복사</button></div>
 </div>
 
 <div id="pLog" class="hidden">
@@ -205,26 +213,47 @@ function switchAccount(v) {
 })();
 
 // ── 등록 링크 처리 ──
+// 등록 링크(해시 문자열)를 해석해 저장. 성공하면 true. 주소창으로 열었을 때와 "붙여넣기 가져오기" 둘 다 이 함수를 씀
+function importCredFromHash(h) {
+  if (!h || !h.includes('k=')) return false;
+  const q = new URLSearchParams(h);
+  const c = { d: q.get('d'), u: q.get('u'), k: q.get('k'), dk: q.get('dk'), h: q.get('h'), p: q.get('p') || '8084', bu: q.get('bu') || '', bp: q.get('bp') || '', n: q.get('n') || '' };
+  if (!(c.d && c.u && c.k && c.dk && c.h)) return false;
+  // 계정 여러 개 보관: 기존 계정을 덮어쓰지 않고 목록(ao_creds)에 추가하고, 새로 연 계정을 현재(ao_cred)로
+  try {
+    let all = []; try { all = JSON.parse(localStorage.getItem('ao_creds') || '[]'); } catch (e2) { all = []; }
+    const prev = JSON.parse(localStorage.getItem('ao_cred') || 'null');
+    if (prev && prev.u && !all.some(x => x.u === prev.u && x.d === prev.d)) all.push(prev);
+    all = all.filter(x => !(x.u === c.u && x.d === c.d)); all.push(c);
+    localStorage.setItem('ao_creds', JSON.stringify(all));
+    localStorage.setItem('ao_cred', JSON.stringify(c));
+  } catch (e) {}
+  return true;
+}
+// 현재 등록 정보를 등록 링크로 되돌림 (홈 화면 앱으로 옮길 때 복사용)
+function myCredLink() {
+  if (!cred) return '';
+  return location.origin + location.pathname + '#d=' + cred.d + '&u=' + cred.u + '&k=' + cred.k + '&dk=' + cred.dk + '&h=' + cred.h + '&p=' + cred.p + '&bu=' + encodeURIComponent(cred.bu) + '&bp=' + encodeURIComponent(cred.bp) + '&n=' + encodeURIComponent(cred.n || '');
+}
+const IS_APP = (window.navigator.standalone === true) || window.matchMedia('(display-mode: standalone)').matches;   // iOS 홈 화면 앱 모드 여부
+
 (function bootstrap() {
   const h = location.hash.startsWith('#') ? location.hash.slice(1) : '';
-  if (h.includes('k=')) {
-    const q = new URLSearchParams(h);
-    const c = { d: q.get('d'), u: q.get('u'), k: q.get('k'), dk: q.get('dk'), h: q.get('h'), p: q.get('p') || '8084', bu: q.get('bu') || '', bp: q.get('bp') || '', n: q.get('n') || '' };
-    if (c.d && c.u && c.k && c.dk && c.h) {
-      // 계정 여러 개 보관: 기존 계정을 덮어쓰지 않고 목록(ao_creds)에 추가하고, 새로 연 계정을 현재(ao_cred)로
-      try {
-        let all = []; try { all = JSON.parse(localStorage.getItem('ao_creds') || '[]'); } catch (e2) { all = []; }
-        const prev = JSON.parse(localStorage.getItem('ao_cred') || 'null');
-        if (prev && prev.u && !all.some(x => x.u === prev.u && x.d === prev.d)) all.push(prev);
-        all = all.filter(x => !(x.u === c.u && x.d === c.d)); all.push(c);
-        localStorage.setItem('ao_creds', JSON.stringify(all));
-        localStorage.setItem('ao_cred', JSON.stringify(c));
-      } catch (e) {}
-      history.replaceState(null, '', location.pathname + location.search);
-    }
-  }
+  if (importCredFromHash(h)) history.replaceState(null, '', location.pathname + location.search);
   try { cred = JSON.parse(localStorage.getItem('ao_cred') || 'null'); } catch (e) { cred = null; }
 })();
+
+// "붙여넣기로 가져오기": 링크 전체든 #뒤 부분이든 받아줌
+function importPasted() {
+  const t = ($('pasteBox').value || '').trim();
+  const h = t.includes('#') ? t.slice(t.indexOf('#') + 1) : t;
+  if (!importCredFromHash(h)) { showMsg('등록 링크가 아닙니다. Safari에서 "등록 정보 복사"로 복사한 것을 붙여넣으세요', 'bad'); return; }
+  location.reload();
+}
+async function copyMyCred() {
+  try { await navigator.clipboard.writeText(myCredLink()); showMsg('복사됨 — 홈 화면 앱을 열어 붙여넣기 칸에 넣으세요', 'good'); }
+  catch (e) { prompt('아래 링크를 길게 눌러 복사하세요', myCredLink()); }
+}
 
 // ── 바이트/Base64 도구 ──
 const enc = new TextEncoder(), dec = new TextDecoder();
@@ -262,7 +291,13 @@ function showMsg(text, cls) {
 
 // ── 연결 ──
 async function start() {
-  if (!cred || !crypto.subtle) { $('noCred').classList.remove('hidden'); if (!crypto.subtle) $('noCred').querySelector('p').textContent = '이 화면은 HTTPS 주소에서만 동작합니다 (암호화 기능 때문).'; return; }
+  if (!cred || !crypto.subtle) {
+    $('noCred').classList.remove('hidden');
+    if (!crypto.subtle) { $('noCredNote').textContent = '이 화면은 HTTPS 주소에서만 동작합니다 (암호화 기능 때문).'; $('pasteWrap').classList.add('hidden'); }
+    else if (IS_APP) $('noCredNote').innerHTML = '<b>홈 화면 앱</b>으로 열렸습니다. 앱은 Safari와 저장 공간이 달라 등록 정보가 안 보입니다.';
+    return;
+  }
+  if (IS_APP) $('homeCard').classList.add('hidden');   // 이미 앱 안이면 안내 카드 불필요
   $('main').classList.remove('hidden');
   keyUser = await importKey(cred.k); keyDev = await importKey(cred.dk);
   $('who').textContent = cred.n ? decodeURIComponent(cred.n) : cred.u;
