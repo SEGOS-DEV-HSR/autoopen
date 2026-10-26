@@ -1,6 +1,12 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AUTO OPEN 원격</title>
+<!-- 홈 화면 아이콘 (10/27). display는 browser: iOS 앱 모드(standalone)는 저장소가 Safari와 분리되어 등록 정보가 안 보이므로 Safari로 열리게 둠 -->
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<meta name="apple-mobile-web-app-title" content="AUTO OPEN">
+<meta name="theme-color" content="#C55A11">
 <!--
   AUTO OPEN 원격 제어 화면 (MQTT over WebSocket + AES-256-GCM) — 2026-10-19
   · 이 파일 한 장을 HTTPS로 호스팅(GitHub Pages 등)하면 끝. 서버 코드 없음.
@@ -42,6 +48,17 @@ button:disabled{opacity:.4;cursor:default;transform:none!important}
 #msg{margin-top:6px;min-height:2.4em;white-space:pre-line;text-align:center;font-size:.85rem}
 #msg.bad{color:var(--danger);font-weight:700}
 #msg.good{color:var(--ok);font-weight:700}
+/* PIN 키패드 (10/27) */
+#pinOverlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:50}
+#pinBox{background:var(--white);border-radius:18px 18px 0 0;padding:18px 16px 28px;width:100%;max-width:400px;box-shadow:0 -4px 20px rgba(0,0,0,.2)}
+#pinTitle{font-weight:700;color:var(--primary);text-align:center;margin:0 0 10px}
+#pinDots{display:flex;justify-content:center;gap:12px;height:28px;margin:0 0 14px}
+#pinDots span{width:16px;height:16px;border-radius:50%;border:2px solid var(--primary);background:transparent}
+#pinDots span.on{background:var(--primary)}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.pad button{justify-content:center;background:var(--highlight);border:1px solid var(--border);border-radius:12px;padding:16px 0;font-size:1.3rem;font-weight:700;color:var(--text)}
+.pad button.act{background:var(--white);font-size:.9rem;color:var(--secondary)}
+.pad button.ok{background:var(--primary);color:#fff;font-size:1rem}
 table{width:100%;border-collapse:collapse;font-size:.82rem}
 th,td{padding:7px 4px;border-bottom:1px solid var(--border);text-align:center}
 th{color:var(--secondary);font-weight:600}
@@ -117,6 +134,16 @@ input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid v
 </div>
 
 <div id="msg"></div>
+<div id="pinOverlay" class="hidden"><div id="pinBox">
+<p id="pinTitle">PIN 입력</p>
+<div id="pinDots"></div>
+<div class="pad">
+<button onclick="pinKey('1')">1</button><button onclick="pinKey('2')">2</button><button onclick="pinKey('3')">3</button>
+<button onclick="pinKey('4')">4</button><button onclick="pinKey('5')">5</button><button onclick="pinKey('6')">6</button>
+<button onclick="pinKey('7')">7</button><button onclick="pinKey('8')">8</button><button onclick="pinKey('9')">9</button>
+<button class="act" onclick="pinKey('cancel')">취소</button><button onclick="pinKey('0')">0</button><button class="act" onclick="pinKey('del')">⌫</button>
+<button class="ok" style="grid-column:1/4" onclick="pinKey('ok')">확인</button>
+</div></div></div>
 </div>
 </div>
 
@@ -305,10 +332,34 @@ function renderGrid() {
     g.appendChild(b);
   }
 }
-function openDrawer(d, pin) {
-  if (pin) { const v = prompt('서랍 ' + d + ' PIN 입력'); if (v === null) return; send({ op: 'open', d: d, pin: v }); }
+async function openDrawer(d, pin) {
+  if (pin) { const v = await askPin('서랍 ' + d + ' — 금고형 PIN'); if (v === null) return; send({ op: 'open', d: d, pin: v }); }
   else send({ op: 'open', d: d });
 }
+
+// ── PIN 키패드 (브라우저 prompt 대신) ──
+let pinBuf = '', pinResolve = null;
+function askPin(title) {
+  pinBuf = ''; $('pinTitle').textContent = title; renderPinDots();
+  $('pinOverlay').classList.remove('hidden');
+  return new Promise(res => { pinResolve = res; });
+}
+function renderPinDots() {
+  const n = Math.max(pinBuf.length, 4);
+  $('pinDots').innerHTML = Array.from({ length: n }, (_, i) => '<span class="' + (i < pinBuf.length ? 'on' : '') + '"></span>').join('');
+}
+function pinKey(k) {
+  if (k === 'cancel') { closePin(null); return; }
+  if (k === 'ok') { if (pinBuf.length < 4) { showMsg('PIN은 4자리 이상입니다', 'bad'); return; } closePin(pinBuf); return; }
+  if (k === 'del') { pinBuf = pinBuf.slice(0, -1); renderPinDots(); return; }
+  if (pinBuf.length >= 8) return;
+  pinBuf += k; renderPinDots();
+}
+function closePin(v) { $('pinOverlay').classList.add('hidden'); const r = pinResolve; pinResolve = null; pinBuf = ''; if (r) r(v); }
+document.addEventListener('keydown', e => {
+  if ($('pinOverlay').classList.contains('hidden')) return;
+  if (e.key >= '0' && e.key <= '9') pinKey(e.key); else if (e.key === 'Backspace') pinKey('del'); else if (e.key === 'Enter') pinKey('ok'); else if (e.key === 'Escape') pinKey('cancel');
+});
 function renderPresets() {
   const list = state.presets ? state.presets.split('|') : [];
   const box = $('presetList'); box.innerHTML = '';

@@ -1,0 +1,13 @@
+{
+  "name": "AUTO OPEN",
+  "short_name": "AUTO OPEN",
+  "description": "서랍 잠금 원격 제어",
+  "start_url": "./",
+  "display": "browser",
+  "background_color": "#FBF3EC",
+  "theme_color": "#C55A11",
+  "icons": [
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}
