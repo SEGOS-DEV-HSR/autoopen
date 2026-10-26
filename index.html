@@ -174,7 +174,7 @@ input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid v
 <div id="tutBox">
 <p id="tutStep"></p><h3 id="tutTitle"></h3><div id="tutBody"></div>
 <div id="tutDots"></div>
-<div class="tutBtns"><button class="btn-ghost btn" id="tutSkip" onclick="endTutorial()">건너뛰기</button><button class="btn-primary btn" id="tutNext" onclick="tutNext()">다음</button></div>
+<div class="tutBtns"><button class="btn-ghost btn" id="tutSkip" onclick="endTutorial()">건너뛰기</button><button class="btn-ghost btn" id="tutPrev" onclick="tutPrev()">이전</button><button class="btn-primary btn" id="tutNext" onclick="tutNext()">다음</button></div>
 </div></div>
 <div id="pinOverlay" class="hidden"><div id="pinBox">
 <p id="pinTitle">PIN 입력</p>
@@ -470,6 +470,7 @@ function renderTut() {
   $('tutDots').innerHTML = tutPages.map((_, i) => '<span class="' + (i === tutIdx ? 'on' : '') + '"></span>').join('');
   $('tutNext').textContent = (tutIdx === tutPages.length - 1) ? '시작하기' : '다음';
   $('tutSkip').classList.toggle('hidden', tutIdx === tutPages.length - 1);
+  $('tutPrev').classList.toggle('hidden', tutIdx === 0);   // 첫 장에는 이전 없음
   // 대상 요소를 화면에 보이게 스크롤한 뒤 구멍·상자 배치 (레이아웃 반영을 위해 한 프레임 뒤)
   const el = document.querySelector(p.target);
   if (el) el.scrollIntoView({ block: 'center' });
@@ -493,6 +494,7 @@ function tutReplace() { if (!$('tutOverlay').classList.contains('hidden') && tut
 window.addEventListener('resize', tutReplace);
 document.getElementById('scroller').addEventListener('scroll', tutReplace, { passive: true });   // 스크롤 중에도 구멍이 대상을 따라감
 function tutNext() { if (tutIdx < tutPages.length - 1) { tutIdx++; renderTut(); } else endTutorial(); }
+function tutPrev() { if (tutIdx > 0) { tutIdx--; renderTut(); } }
 function endTutorial() { $('tutOverlay').classList.add('hidden'); showTab(tutPrevTab); tutRestoreZoom(); try { localStorage.setItem(tutKey(), '1'); } catch (e) {} }
 // ── PIN 키패드 (브라우저 prompt 대신) ──
 let pinBuf = '', pinResolve = null;
