@@ -79,7 +79,7 @@ table{width:100%;border-collapse:collapse;font-size:.82rem}
 th,td{padding:7px 4px;border-bottom:1px solid var(--border);text-align:center}
 th{color:var(--secondary);font-weight:600}
 td.name{text-align:left;font-weight:700}
-input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:.9rem;font-family:inherit}
+input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:16px;font-family:inherit}   /* 16px 미만이면 iOS Safari가 포커스 때 화면을 확대함 (10/27) */
 .row{display:flex;gap:8px;align-items:center;margin:8px 0}
 .row label{font-size:.82rem;display:flex;align-items:center;gap:4px}
 .btn{justify-content:center;border-radius:10px;padding:11px 14px;font-weight:700;font-size:.86rem}
@@ -441,7 +441,22 @@ function maybeTutorial() {
   let seen = false; try { seen = localStorage.getItem(tutKey()) === '1'; } catch (e) {}
   if (!seen) startTutorial(false);
 }
+// 확대(핀치/입력칸 자동 확대)된 상태면 튜토리얼 좌표가 어긋나므로 배율을 1로 되돌림. 끝나면 원래 viewport 설정 복구
+let tutViewportBackup = null;
+function tutResetZoom() {
+  const vv = window.visualViewport; if (!vv || vv.scale <= 1.01) return;
+  const m = document.querySelector('meta[name=viewport]'); if (!m) return;
+  tutViewportBackup = m.getAttribute('content');
+  m.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0');   // iOS는 이 변경 즉시 배율 1로 복귀
+}
+function tutRestoreZoom() {
+  if (tutViewportBackup === null) return;
+  const m = document.querySelector('meta[name=viewport]'); if (m) m.setAttribute('content', tutViewportBackup);
+  tutViewportBackup = null;
+}
 function startTutorial(manual) {
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();   // 입력칸 포커스 해제(키보드 내림)
+  tutResetZoom();
   tutPages = buildTutorial(); tutIdx = 0;
   tutPrevTab = ['drawer', 'log', 'admin'].find(t => !$('p' + ({ drawer: 'Drawer', log: 'Log', admin: 'Admin' })[t]).classList.contains('hidden')) || 'drawer';
   $('tutOverlay').classList.remove('hidden');
@@ -478,7 +493,7 @@ function tutReplace() { if (!$('tutOverlay').classList.contains('hidden') && tut
 window.addEventListener('resize', tutReplace);
 document.getElementById('scroller').addEventListener('scroll', tutReplace, { passive: true });   // 스크롤 중에도 구멍이 대상을 따라감
 function tutNext() { if (tutIdx < tutPages.length - 1) { tutIdx++; renderTut(); } else endTutorial(); }
-function endTutorial() { $('tutOverlay').classList.add('hidden'); showTab(tutPrevTab); try { localStorage.setItem(tutKey(), '1'); } catch (e) {} }
+function endTutorial() { $('tutOverlay').classList.add('hidden'); showTab(tutPrevTab); tutRestoreZoom(); try { localStorage.setItem(tutKey(), '1'); } catch (e) {} }
 // ── PIN 키패드 (브라우저 prompt 대신) ──
 let pinBuf = '', pinResolve = null;
 function askPin(title) {
