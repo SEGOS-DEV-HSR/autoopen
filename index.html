@@ -99,7 +99,60 @@ input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid v
 .linkbox{word-break:break-all;font-size:.72rem;color:var(--secondary);background:var(--highlight);padding:8px;border-radius:8px}
 .note{font-size:.78rem;color:var(--secondary);line-height:1.5;word-break:keep-all;overflow-wrap:anywhere}
 #msg,.drawer-btn small,#tutTitle{word-break:keep-all}
+/* ── 가로 모드(패드·PC): 왼쪽 제어 + 오른쪽 서랍장 애니메이션 (11/20, 전시판 pad.html 과 같은 구성) ── */
+#wrap{height:100%;display:grid;grid-template-columns:1fr;grid-template-rows:minmax(0,1fr)}
+#left{height:100%;min-width:0;min-height:0}
+#right{display:none;min-height:0;overflow:hidden}
+@media (orientation:landscape) and (min-width:700px){
+  #wrap{grid-template-columns:minmax(340px,440px) 1fr}
+  #right{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:18px 24px;border-left:1px solid var(--border);background:linear-gradient(180deg,#fff 0%,var(--highlight) 100%)}
+}
+#animTitle{font-weight:700;color:var(--primary);font-size:1.1rem;margin:0 0 2px;text-align:center;letter-spacing:.5px}
+#animWho{font-size:.82rem;color:var(--secondary);margin:4px 0 0;text-align:center}
+#animWho b{color:var(--primary)}
+#animCap{font-size:.9rem;color:var(--secondary);margin:14px 0 0;text-align:center;min-height:1.4em;transition:color .2s}
+#animCap.on{color:var(--primary);font-weight:700}
+.scene{width:560px;height:518px;perspective:none;position:relative;overflow:visible}
+.cab{position:absolute;left:50%;top:57%;width:320px;height:330px;margin:-165px 0 0 -160px;transform-style:preserve-3d;transform:scale(var(--k,1)) rotateX(-15deg) rotateY(-20deg)}
+.face{position:absolute;left:0;top:0;box-sizing:border-box;backface-visibility:visible}
+.cab>.face{background:#D9C6AC;border:1px solid rgba(120,90,60,.35)}
+.cab>.face.top{background:linear-gradient(135deg,#F3E9DA,#E6D7C2)}
+.cab>.face.right{background:linear-gradient(180deg,#CDB89C,#BFA784)}
+.cab>.face.left{background:#C4AD8E}
+.cab>.face.back{background:linear-gradient(180deg,#A8907A,#8E775F)}
+.cab>.face.bottom{background:#B49C80}
+.cab>.face.frame{background:linear-gradient(180deg,#EEE2D0,#DCCAB0);border:1px solid rgba(120,90,60,.45)}
+.cab>.face.inner{background:linear-gradient(180deg,#B9A289,#A48C72);border:1px solid rgba(90,60,30,.25)}
+.dr{position:absolute;transform-style:preserve-3d;transition:transform .6s cubic-bezier(.2,.9,.3,1)}
+.dr.open{transform:translateZ(140px)}
+.dr.closing{transition:transform .75s ease-in}
+.dr .bd,.dr .fp{position:absolute;left:0;top:0;transform-style:preserve-3d}
+.dr .face{background:#EADCC6;border:1px solid rgba(120,90,60,.3);transition:border-color .3s,background .3s}
+.dr .bd>.face.top{display:none}
+.dr .bd>.face.rim{background:#E6D8C2;border:1px solid rgba(120,90,60,.35)}
+.dr .face.bottom{background:#F3EBDF}
+.dr .face.back{background:#E8DBC8}
+.dr .face.left,.dr .face.right{background:linear-gradient(180deg,#E2D2BA,#D4C2A6)}
+.dr .fp>.face.top{background:linear-gradient(90deg,#FBF5EC,#F0E4D3);border-color:#B89A78}
+.dr .fp>.face.left,.dr .fp>.face.right{background:#E3D3BC;border-color:#B89A78}
+.dr .fp>.face.bottom{background:#D9C8AF;border-color:#B89A78}
+.dr .fp>.face.back{background:#EADCC6}
+.dr .face.front{background:linear-gradient(180deg,#FBF7F1 0%,#F1E8DA 60%,#E6DAC8 100%);border:1px solid #B89A78;border-radius:3px;box-shadow:inset 0 1px 0 #fff,inset 0 -2px 4px rgba(90,60,30,.18);transition:box-shadow .3s,background .3s,border-color .3s}
+.dr.open .face.front{background:linear-gradient(180deg,#FFF6EC,#F4E2CF);border-color:var(--primary);border-width:1.5px;box-shadow:inset 0 1px 0 #fff,inset 0 0 0 2.25px var(--primary)}
+.dr.open .bd>.face,.dr.open .fp>.face{border-color:var(--primary);border-width:1.5px}
+.dr.open .bd>.face.rim,.dr.open .fp>.face.top{background:#F6DCC6}
+.dr.open .bd>.face.left,.dr.open .bd>.face.right{background:linear-gradient(180deg,#F2E0CC,#E6CFB6)}
+.dr.open .bd>.face.bottom{background:#FBF0E4}
+.dr.open .bd>.face.back{background:#F0DECA}
+@property --a{syntax:'<angle>';inherits:true;initial-value:0deg}
+@keyframes spin{to{--a:360deg}}
+.cab{animation:spin 2.8s linear infinite}
+.fx{position:absolute;inset:0;border-radius:inherit;pointer-events:none;display:none}
+.fx.ring{padding:3.75px;background:conic-gradient(from var(--a),transparent 0 70%,var(--primary) 76%,#FFD2AE 81%,#FFF4EA 85%,#FFD2AE 89%,var(--primary) 94%,transparent 100%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude}
+.dr.open .fx.ring{display:block}
+.dr .num{position:absolute;left:12px;top:8px;font-size:15px;font-weight:700;color:var(--primary)}   /* 손잡이 없이 번호만 (11/20) */
 </style></head><body>
+<div id="wrap"><div id="left">
 <div id="scroller">
 <div class="app">
 <div class="header"><h1>AUTO OPEN</h1><p id="sub">원격 제어</p><div class="divider"></div></div>
@@ -174,6 +227,14 @@ input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid v
 
 <div id="msg"></div>
 </div>
+</div>
+</div>
+</div>
+<div id="right">
+<p id="animTitle">AUTO OPEN</p>
+<div class="scene"><div class="cab" id="cab"></div></div>
+<p id="animCap">버튼을 누르면 그 칸이 열립니다</p>
+<p id="animWho"></p>
 </div>
 </div>
 <!-- 오버레이는 스크롤 영역 밖(body 직계): fixed 요소가 overflow 스크롤러 안에 있으면 iOS에서 기준이 틀어질 수 있음 -->
@@ -389,10 +450,10 @@ const DENY_MSG = { perm: '이 서랍을 열 권한이 없습니다', pin: 'PIN�
 function onEvt(e) {
   const mine = (e.to === cred.u);
   if (e.ev === 'deny') { if (mine) showMsg(DENY_MSG[e.r] || ('거절: ' + e.r), 'bad'); return; }
-  if (e.ev === 'open') { if (mine) showMsg('서랍 ' + e.d + ' 개방 신호 전송됨', 'good'); else showMsg(e.by + ' 님이 서랍 ' + e.d + ' 사용 중', ''); return; }
-  if (e.ev === 'preset') { if (mine) showMsg('세팅 ' + (e.i + 1) + ' 개방', 'good'); else showMsg(e.by + ' 님이 세팅 ' + (e.i + 1) + ' 사용 중', ''); return; }
+  if (e.ev === 'open') { animOpen([e.d - 1]); if (mine) showMsg('서랍 ' + e.d + ' 개방 신호 전송됨', 'good'); else showMsg(e.by + ' 님이 서랍 ' + e.d + ' 사용 중', ''); return; }
+  if (e.ev === 'preset') { animOpen((presetList()[e.i] || '').split('').map(c => +c - 1)); if (mine) showMsg('세팅 ' + (e.i + 1) + ' 개방', 'good'); else showMsg(e.by + ' 님이 세팅 ' + (e.i + 1) + ' 사용 중', ''); return; }
   if (!mine) return;
-  if (e.ev === 'pong') { gotPong = true; clearInterval(pingTimer); if (client.connected) $('connTxt').textContent = '연결됨'; me = { admin: e.admin === 1, perm: e.perm, name: e.name }; $('who').textContent = e.name + (me.admin ? ' (관리자)' : ''); $('tabAdmin').classList.toggle('hidden', !me.admin); renderGrid(); if (me.admin) send({ op: 'users' }); maybeTutorial(); return; }
+  if (e.ev === 'pong') { gotPong = true; clearInterval(pingTimer); if (client.connected) $('connTxt').textContent = '연결됨'; me = { admin: e.admin === 1, perm: e.perm, name: e.name }; $('who').textContent = e.name + (me.admin ? ' (관리자)' : ''); $('tabAdmin').classList.toggle('hidden', !me.admin); renderGrid(); renderWho(); if (me.admin) send({ op: 'users' }); maybeTutorial(); return; }
   if (e.ev === 'users') { renderUsers(e.list || []); renderInvites(); const ids = new Set((e.list || []).map(u => u.uid)); loadInvites().forEach(inv => { if (!ids.has(inv.uid)) dropInvite(inv.uid); }); return; }
   if (e.ev === 'log') { renderLog(e.list || []); return; }
   if (e.ev === 'adduser') { onAdded(e); return; }
@@ -719,6 +780,92 @@ function showTab(t) {
   if (t === 'log') reqLog();
   if (t === 'admin') send({ op: 'users' });
 }
+
+// ══════════ 가로 모드 오른쪽 패널: 입체 서랍장 (전시판 pad.html 과 같은 CSS 3D, 손잡이 없음) ══════════
+//  보드 이벤트로 움직임: ev 'open'(서랍 d) → 그 칸이 앞으로 나왔다가 PULSE_MS 뒤 제자리, ev 'preset' → 세팅 칸들이 600ms 시차로 나왔다가 같이 들어감.
+//  누가 눌렀든(내 명령이 아니어도) 같이 움직여서, 전시 때 옆 화면에서도 어느 칸이 열리는지 보임
+const CW = 320, CH = 330, CD = 240, T = 18, RAIL_T = 16, RAIL_M = 8, OPEN_H = (CH - 2 * RAIL_T - 2 * RAIL_M) / N, DR_W = CW - 2 * T - 8, DR_H = OPEN_H - 4, FT = 14, BODY_IN = 12, BODY_TOP = 8, RIM = 8, STAGGER_MS = 600;
+function face(parent, cls, w, h, transform, extra) { const f = document.createElement('div'); f.className = 'face ' + cls; f.style.width = w + 'px'; f.style.height = h + 'px'; f.style.transform = transform; if (extra) extra(f); parent.appendChild(f); return f; }
+function box(parent, w, h, d, opts) {
+  opts = opts || {};
+  if (!opts.noFront) face(parent, 'front', w, h, 'translateZ(' + (d / 2) + 'px)', opts.front);
+  face(parent, 'back', w, h, 'rotateY(180deg) translateZ(' + (d / 2) + 'px)');
+  const sx = (w - d) / 2;
+  face(parent, 'left', d, h, 'translateX(' + sx + 'px) rotateY(-90deg) translateZ(' + (w / 2) + 'px)');
+  face(parent, 'right', d, h, 'translateX(' + sx + 'px) rotateY(90deg) translateZ(' + (w / 2) + 'px)');
+  const sy = (h - d) / 2;
+  face(parent, 'top', w, d, 'translateY(' + sy + 'px) rotateX(90deg) translateZ(' + (h / 2) + 'px)');
+  face(parent, 'bottom', w, d, 'translateY(' + sy + 'px) rotateX(-90deg) translateZ(' + (h / 2) + 'px)');
+}
+function frontPlane(parent, cls, x, y, w, h) { return face(parent, cls, w, h, 'translate(' + x + 'px,' + y + 'px) translateZ(' + (CD / 2) + 'px)'); }
+function buildBays() {
+  const cab = $('cab'); if (!cab) return;
+  box(cab, CW, CH, CD, { noFront: true });
+  const sx = (CW - CD) / 2, sy = (CH - CD) / 2;
+  face(cab, 'inner', CD, CH, 'translateX(' + sx + 'px) rotateY(90deg) translateZ(' + (T - CW / 2) + 'px)');
+  face(cab, 'inner', CD, CH, 'translateX(' + sx + 'px) rotateY(-90deg) translateZ(' + (T - CW / 2) + 'px)');
+  face(cab, 'inner', CW, CD, 'translateY(' + sy + 'px) rotateX(90deg) translateZ(' + (CH / 2 - RAIL_T) + 'px)');
+  face(cab, 'inner', CW, CD, 'translateY(' + sy + 'px) rotateX(-90deg) translateZ(' + (CH / 2 - RAIL_T) + 'px)');
+  frontPlane(cab, 'frame', 0, 0, T, CH); frontPlane(cab, 'frame', CW - T, 0, T, CH);
+  frontPlane(cab, 'frame', T, 0, CW - 2 * T, RAIL_T); frontPlane(cab, 'frame', T, CH - RAIL_T, CW - 2 * T, RAIL_T);
+  for (let k = 1; k < N; k++) frontPlane(cab, 'frame', T, RAIL_T + k * OPEN_H + (k - 1) * RAIL_M, CW - 2 * T, RAIL_M);
+  for (let i = 0; i < N; i++) {
+    const dr = document.createElement('div'); dr.className = 'dr'; dr.id = 'dr' + i;
+    dr.style.left = (T + 4) + 'px'; dr.style.width = DR_W + 'px'; dr.style.height = DR_H + 'px';
+    dr.style.top = (RAIL_T + 2 + i * (OPEN_H + RAIL_M)) + 'px'; dr.style.transform = 'translateZ(0px)';
+    const bd = document.createElement('div'); bd.className = 'bd';
+    const bw = DR_W - 2 * BODY_IN, bh = DR_H - BODY_TOP, bdDepth = CD - 30;
+    bd.style.left = BODY_IN + 'px'; bd.style.top = BODY_TOP + 'px'; bd.style.width = bw + 'px'; bd.style.height = bh + 'px';
+    box(bd, bw, bh, bdDepth, { noFront: true });
+    const rsy = (bh - bdDepth) / 2;
+    face(bd, 'rim', RIM, bdDepth, 'translateY(' + rsy + 'px) rotateX(90deg) translateZ(' + (bh / 2) + 'px)');
+    face(bd, 'rim', RIM, bdDepth, 'translateX(' + (bw - RIM) + 'px) translateY(' + rsy + 'px) rotateX(90deg) translateZ(' + (bh / 2) + 'px)');
+    face(bd, 'rim', bw, RIM, 'translateY(' + (bh / 2 - RIM / 2) + 'px) translateZ(' + (-bdDepth / 2 + RIM / 2) + 'px) rotateX(90deg) translateZ(' + (bh / 2) + 'px)');
+    dr.appendChild(bd);
+    const fp = document.createElement('div'); fp.className = 'fp'; fp.style.width = DR_W + 'px'; fp.style.height = DR_H + 'px';
+    fp.style.transform = 'translateZ(' + (bdDepth / 2 + FT / 2) + 'px)';
+    box(fp, DR_W, DR_H, FT, { front: f => {
+      const ring = document.createElement('div'); ring.className = 'fx ring'; f.appendChild(ring);
+      const n = document.createElement('div'); n.className = 'num'; n.textContent = String(i + 1); f.appendChild(n);
+    } });
+    dr.appendChild(fp); cab.appendChild(dr);
+  }
+}
+const animTimers = [[], [], []];
+function animSet(i, phase) {
+  const g = $('dr' + i); if (!g) return; g.classList.remove('open', 'closing');
+  if (phase === 'open') { g.classList.add('open'); g.style.transform = ''; }
+  else if (phase === 'closing') { g.classList.add('open', 'closing'); g.style.transform = 'translateZ(0px)'; }
+  else g.style.transform = 'translateZ(0px)';
+}
+function setCap() {
+  const c = $('animCap'); if (!c) return;
+  const open = []; for (let i = 0; i < N; i++) { const g = $('dr' + i); if (g && g.classList.contains('open') && !g.classList.contains('closing')) open.push(i + 1); }
+  c.textContent = open.length ? ('서랍 ' + open.join(' · ') + ' 열림') : '버튼을 누르면 그 칸이 열립니다';
+  c.classList.toggle('on', open.length > 0);
+}
+function animOpen(idx) {   // idx: 칸 번호-1 배열. 순서대로 STAGGER_MS 시차로 열리고, 마지막 칸 통전이 끝날 때 같이 닫힘
+  if (!$('cab')) return;
+  const hold = (state.pulse || 3000) + STAGGER_MS * (idx.length - 1);
+  idx.forEach((i, k) => {
+    animTimers[i].forEach(clearTimeout); animTimers[i] = [];
+    animTimers[i].push(setTimeout(() => { animSet(i, 'open'); setCap(); }, k * STAGGER_MS));
+    animTimers[i].push(setTimeout(() => { animSet(i, 'closing'); setCap(); animTimers[i].push(setTimeout(() => { animSet(i, null); }, 800)); }, hold));
+  });
+}
+function renderWho() {   // 오른쪽 패널 아래: 지금 이 화면의 사용자와 열 수 있는 칸 (전시 때 옆에서 봐도 누구 화면인지 알게)
+  const w = $('animWho'); if (!w) return;
+  const allowed = []; for (let d = 1; d <= N; d++) if ((me.perm >> (d - 1)) & 1) allowed.push(d);
+  w.innerHTML = '<b>' + (me.name || '') + '</b>' + (me.admin ? ' (관리자)' : '') + ' · 열 수 있는 칸 ' + (allowed.length ? allowed.join('·') : '없음');
+}
+function fitScene() {
+  const sc = document.querySelector('.scene'), r = $('right'); if (!sc || !r || !r.clientWidth) return;
+  const w = Math.max(200, r.clientWidth - 48), h = Math.max(180, r.clientHeight - 130);
+  const k = Math.min(1.7, w / 600, h / 580);
+  sc.style.width = Math.round(600 * k) + 'px'; sc.style.height = Math.round(580 * k) + 'px';
+  $('cab').style.setProperty('--k', k.toFixed(3));
+}
+buildBays(); window.addEventListener('resize', fitScene); fitScene();
 
 start();
 </script>
