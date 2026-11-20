@@ -635,7 +635,7 @@ function renderPresets() {
     const b = document.createElement('button');
     b.textContent = '세팅 ' + (i + 1) + ' (서랍 ' + p.split('').join('·') + ')';
     b.disabled = !!state.busy;
-    b.onclick = () => send({ op: 'preset', i: i });
+    b.onclick = () => runPreset(i, p);
     box.appendChild(b);
   });
   $('presetCard').classList.toggle('hidden', list.length === 0);
@@ -644,6 +644,12 @@ function renderPresets() {
 }
 
 // ── 관리자: 세팅 편집 (전체 목록을 "13|23" 형태로 보드에 통째로 저장) ──
+// 11/20 (펌웨어 v1.2.2): 세팅에 금고형 칸이 있으면 그 칸의 PIN을 먼저 받아 p1~p3로 함께 보냄
+async function runPreset(i, p) {
+  const msg = { op: 'preset', i: i };
+  for (const c of p) { if ((state.pinmask >> (+c - 1)) & 1) { const v = await askPin('세팅 ' + (i + 1) + ' — 서랍 ' + c + ' 금고형 PIN'); if (v === null) return; msg['p' + c] = v; } }
+  send(msg);
+}
 function presetList() { return state.presets ? state.presets.split('|').filter(p => p) : []; }
 function renderPresetAdmin() {
   const box = $('presetAdminList'); if (!box) return;
