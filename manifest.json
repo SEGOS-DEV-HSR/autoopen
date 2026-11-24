@@ -1,6 +1,6 @@
 {
-  "name": "AUTO OPEN",
-  "short_name": "AUTO OPEN",
+  "name": "AUTO LOCK & OPEN",
+  "short_name": "ALO",
   "description": "서랍 잠금 원격 제어",
   "start_url": "./",
   "display": "browser",

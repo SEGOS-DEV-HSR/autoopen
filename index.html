@@ -1,11 +1,11 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AUTO OPEN 원격</title>
+<title>AUTO LOCK & OPEN 원격</title>
 <!-- 홈 화면 아이콘 (10/27). display는 browser: iOS 앱 모드(standalone)는 저장소가 Safari와 분리되어 등록 정보가 안 보이므로 Safari로 열리게 둠 -->
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
-<meta name="apple-mobile-web-app-title" content="AUTO OPEN">
+<meta name="apple-mobile-web-app-title" content="ALO">
 <meta name="theme-color" content="#C55A11">
 <!--
   AUTO OPEN 원격 제어 화면 (MQTT over WebSocket + AES-256-GCM) — 2026-10-19
@@ -155,7 +155,7 @@ input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid v
 <div id="wrap"><div id="left">
 <div id="scroller">
 <div class="app">
-<div class="header"><h1>AUTO OPEN</h1><p id="sub">원격 제어</p><div class="divider"></div></div>
+<div class="header"><h1>AUTO LOCK &amp; OPEN</h1><p id="sub">원격 제어</p><div class="divider"></div></div>
 
 <div id="noCred" class="card hidden">
 <div class="card-title">등록 필요</div>
@@ -231,7 +231,7 @@ input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid v
 </div>
 </div>
 <div id="right">
-<p id="animTitle">AUTO OPEN</p>
+<p id="animTitle">AUTO LOCK &amp; OPEN</p>
 <div class="scene"><div class="cab" id="cab"></div></div>
 <p id="animCap">버튼을 누르면 그 칸이 열립니다</p>
 <p id="animWho"></p>
@@ -740,7 +740,7 @@ function copyLink() { navigator.clipboard.writeText($('qrLink').textContent).the
 async function shareLink() {
   const link = $('qrLink').textContent, name = $('qrName').textContent.replace(' 등록용', '');
   if (navigator.share) {
-    try { await navigator.share({ title: 'AUTO OPEN 등록 (' + name + ')', text: 'AUTO OPEN 서랍 등록 링크입니다. Safari(기본 브라우저)에서 열어 주세요.', url: link }); }
+    try { await navigator.share({ title: 'AUTO LOCK & OPEN 등록 (' + name + ')', text: 'AUTO LOCK & OPEN 서랍 등록 링크입니다. Safari(기본 브라우저)에서 열어 주세요.', url: link }); }
     catch (e) { /* 사용자가 공유 시트를 닫은 경우 */ }
   } else copyLink();
 }
